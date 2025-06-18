@@ -1,0 +1,11 @@
+Django==5.2.1
+channels[daphne]>=4.2,<4.3
+channels-redis<=4.3
+celery==5.5.3
+django-taggit==6.1.0
+ffmpeg-python==0.2.0
+pillow==11.2.1
+pytz
+coverage
+psycopg2-binary==2.9.10
+ruff # for format

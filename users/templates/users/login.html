@@ -1,0 +1,26 @@
+{% extends "users/base.html" %}
+
+{% block title %}Login - MyTube{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="auth-form-container card">
+    <h2 style="text-align: center; margin-bottom: 20px; font-size: 24px; font-weight: 500;">Log In</h2>
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="button" style="width: 100%;">Log In</button>
+    </form>
+    <p style="text-align: center; margin-top: 20px;">
+      <a href="{% url 'users:register' %}">Don't have an account? Register</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "users/base.html" %}
+
+{% block title %}Add New Category{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="section-title">Add New Category</h2>
+    <form method="post">
+        {% csrf_token %}
+        {% if next_target_url_for_template %}
+            <input type="hidden" name="next" value="{{ next_target_url_for_template }}">
+        {% endif %}
+        {{ form.as_p }}
+        <button type="submit" class="button">Add Category</button>
+        {# For Cancel, prioritize next_target_url_for_template, then a fixed fallback #}
+        {% url 'videos:upload_video' as final_upload_url %}
+        <a href="{{ next_target_url_for_template|default:final_upload_url }}" class="button button-secondary" style="margin-left: 10px;">Cancel</a>
+    </form>
+
+    <hr class="my-4"> {# Added a horizontal rule for separation #}
+
+    <h3 class="section-title mt-4">Existing Categories</h3>
+    {% if categories %}
+        <ul class="list-group">
+            {% for category in categories %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ category.name }}
+                    <span>
+                        {# Edit button can be added here later if needed #}
+                        {# <a href="#" class="btn btn-sm btn-outline-primary me-2">Edit</a> #}
+                        <a href="{% url 'videos:delete_category' category.id %}" class="btn btn-sm btn-outline-danger">
+                            Delete
+                        </a>
+                    </span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No categories found.</p>
+    {% endif %}
+</div>
+{% endblock %}

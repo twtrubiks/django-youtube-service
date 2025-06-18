@@ -1,0 +1,141 @@
+{% extends "users/base.html" %}
+
+{% block title %}{{ profile_owner.username }}'s Channel - MyTube{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="channel-banner" {% if not profile.banner_image %}style="background-color: #e0e0e0; height: 200px; display: flex; align-items: center; justify-content: center; color: #757575; font-size: 1.2em;"{% endif %}>
+    {% if profile.banner_image %}
+      <img src="{{ profile.banner_image.url }}" alt="{{ profile_owner.username }}'s channel banner" style="width: 100%; height: auto; max-height: 300px; object-fit: cover;">
+    {% else %}
+      <span>Channel Banner</span>
+    {% endif %}
+  </div>
+
+  <div class="channel-header-info">
+    <div class="channel-avatar-container">
+      {% if profile.profile_picture %}
+        <img src="{{ profile.profile_picture.url }}" alt="{{ profile_owner.username }}'s profile picture" class="channel-avatar">
+      {% else %}
+        <div class="channel-avatar-placeholder"><span>{{ profile_owner.username|first|upper }}</span></div>
+      {% endif %}
+    </div>
+    <div class="channel-meta">
+      <h1 class="channel-name">{{ profile_owner.username }}</h1>
+      <p class="channel-stats">
+        <span id="subscriber-count">{{ profile.subscribers_count }}</span> subscribers &bull; {{ user_videos.count }} videos
+      </p>
+      {% if profile.channel_description %}
+        <p class="channel-description">{{ profile.channel_description|truncatewords:30 }}</p>
+      {% endif %}
+    </div>
+    <div class="channel-actions">
+      {% if request.user == profile_owner %}
+        <a href="{% url 'users:edit_profile' %}" class="button button-secondary">Edit Profile</a>
+      {% elif request.user.is_authenticated %}
+        <form id="subscription-form" method="post" action="{% url 'interactions:toggle_subscription' profile_owner.id %}" style="display: inline;">
+          {% csrf_token %}
+          <button type="submit" id="subscribe-button" class="button {% if is_subscribed %}button-secondary{% endif %}">
+            {% if is_subscribed %}Subscribed{% else %}Subscribe{% endif %}
+          </button>
+        </form>
+      {% else %}
+          <a href="{% url 'users:login' %}?next={{ request.path }}" class="button">Subscribe</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <h2 class="section-title" style="margin-top: 30px;">Uploaded Videos</h2>
+  {% if user_videos %}
+  <div class="video-grid">
+      {% for video in user_videos %}
+      <div class="video-item">
+          <a href="{% url 'videos:video_detail' video.id %}">
+              <div class="video-thumbnail">
+                  {% if video.thumbnail %}
+                      <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail">
+                  {% else %}
+                      <div style="width:100%; aspect-ratio: 16/9; background-color: #eee; display:flex; align-items:center; justify-content:center; color:#666;">No Thumbnail</div>
+                  {% endif %}
+              </div>
+          </a>
+          <div class="video-info">
+              <h3 class="video-title">
+                  <a href="{% url 'videos:video_detail' video.id %}">{{ video.title }}</a>
+              </h3>
+              {# <div class="video-uploader"> #} {# Not needed here as it's the channel owner's videos #}
+                  {# <a href="{% url 'users:channel' video.uploader.username %}">{{ video.uploader.username }}</a> #}
+              {# </div> #}
+              <div class="video-views">
+                  {{ video.views_count }} views &bull; {{ video.upload_date|timesince }} ago
+              </div>
+          </div>
+      </div>
+      {% endfor %}
+  </div>
+  {% else %}
+    <p>{{ profile_owner.username }} has not uploaded any videos yet.</p>
+  {% endif %}
+
+{% endblock content %}
+{% block body_extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const subscriptionForm = document.getElementById('subscription-form');
+    if (subscriptionForm) {
+        subscriptionForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(subscriptionForm);
+            const subscribeButton = document.getElementById('subscribe-button');
+            const subscriberCountSpan = document.getElementById('subscriber-count');
+
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+            const csrftoken = getCookie('csrftoken');
+
+            fetch(subscriptionForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    subscriberCountSpan.textContent = data.subscribers_count;
+                    if (data.subscribed) {
+                        subscribeButton.textContent = 'Subscribed';
+                        subscribeButton.classList.add('button-secondary');
+                    } else {
+                        subscribeButton.textContent = 'Subscribe';
+                        subscribeButton.classList.remove('button-secondary');
+                    }
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An unexpected error occurred.');
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

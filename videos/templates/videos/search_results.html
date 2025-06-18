@@ -1,0 +1,41 @@
+{% extends "users/base.html" %}
+
+{% block title %}Search Results for "{{ query }}"{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="section-title">Search Results for "{{ query }}"</h2>
+
+    {% if videos %}
+    <div class="video-grid">
+        {% for video in videos %}
+        <div class="video-item">
+            <a href="{% url 'videos:video_detail' video.id %}">
+                <div class="video-thumbnail">
+                    {% if video.thumbnail %}
+                        <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail">
+                    {% else %}
+                        <div style="width:100%; aspect-ratio: 16/9; background-color: #eee; display:flex; align-items:center; justify-content:center; color:#666;">No Thumbnail</div>
+                    {% endif %}
+                </div>
+            </a>
+            <div class="video-info">
+                <h3 class="video-title">
+                    <a href="{% url 'videos:video_detail' video.id %}">{{ video.title }}</a>
+                </h3>
+                <div class="video-uploader">
+                    <a href="{% url 'users:channel' video.uploader.username %}">{{ video.uploader.username }}</a>
+                </div>
+                <div class="video-views">
+                    {{ video.views_count }} views &bull; {{ video.upload_date|timesince }} ago
+                </div>
+                {# <p class="video-description-snippet">{{ video.description|truncatewords:15 }}</p> #} {# Optional: Add a short description snippet if desired #}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+        <p>No videos found matching your query "{{ query }}".</p>
+    {% endif %}
+</div>
+{% endblock %}

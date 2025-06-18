@@ -1,0 +1,73 @@
+{% extends "users/base.html" %}
+
+{% block title %}Edit Profile - MyTube{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h2 class="section-title">Edit Your Profile</h2>
+  {% if messages %}
+    <ul class="messages">
+      {% for message in messages %}
+        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  <div class="card" style="padding: 24px;">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <h3 style="font-size: 18px; font-weight: 500; margin-top:0; margin-bottom: 16px; border-bottom: 1px solid #eee; padding-bottom: 8px;">User Information</h3>
+      {{ user_form.as_p }}
+      <h3 style="font-size: 18px; font-weight: 500; margin-top:24px; margin-bottom: 16px; border-bottom: 1px solid #eee; padding-bottom: 8px;">Profile Information</h3>
+      <div class="form-field" style="margin-bottom: 1rem;">
+        <p style="font-weight: bold; margin-bottom: 0.5rem;">{{ profile_form.profile_picture.label_tag }}</p>
+        {{ profile_form.profile_picture }}
+        {% if profile_form.profile_picture.field.help_text %}
+          <small class="form-text text-muted" style="display: block; margin-top: 0.25rem;">{{ profile_form.profile_picture.field.help_text }}</small>
+        {% endif %}
+        {% for error in profile_form.profile_picture.errors %}
+          <div class="alert alert-danger" style="margin-top: 0.5rem; color: red; font-size: 0.9em;">{{ error }}</div>
+        {% endfor %}
+
+        {% if profile_form.instance.profile_picture and profile_form.instance.profile_picture.url %}
+        <div style="margin-top: 10px; border: 1px solid #ddd; padding: 10px; border-radius: 4px; background-color: #f9f9f9; max-width: 200px;"> {# Added max-width for better profile pic display #}
+          <p style="font-weight:500; margin-top:0; margin-bottom: 8px;">Current Profile Picture Preview:</p>
+          <img src="{{ profile_form.instance.profile_picture.url }}" alt="Current Profile Picture" style="max-width: 100%; height: auto; border-radius: 50%; margin-bottom: 8px; display: block; border: 1px solid #eee; object-fit: cover; width: 100px; height: 100px;"> {# Adjusted styles for profile picture #}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="form-field" style="margin-bottom: 1rem;">
+        <p style="font-weight: bold; margin-bottom: 0.5rem;">{{ profile_form.channel_description.label_tag }}</p>
+        {{ profile_form.channel_description }}
+        {% if profile_form.channel_description.field.help_text %}
+          <small class="form-text text-muted" style="display: block; margin-top: 0.25rem;">{{ profile_form.channel_description.field.help_text }}</small>
+        {% endif %}
+        {% for error in profile_form.channel_description.errors %}
+          <div class="alert alert-danger" style="margin-top: 0.5rem; color: red; font-size: 0.9em;">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <div class="form-field" style="margin-bottom: 1rem;">
+        <p style="font-weight: bold; margin-bottom: 0.5rem;">{{ profile_form.banner_image.label_tag }}</p>
+        {# This will render the "Currently", "Clear checkbox" and "Change" file input #}
+        {{ profile_form.banner_image }}
+        {% if profile_form.banner_image.field.help_text %}
+          <small class="form-text text-muted" style="display: block; margin-top: 0.25rem;">{{ profile_form.banner_image.field.help_text }}</small>
+        {% endif %}
+        {% for error in profile_form.banner_image.errors %}
+          <div class="alert alert-danger" style="margin-top: 0.5rem; color: red; font-size: 0.9em;">{{ error }}</div>
+        {% endfor %}
+
+        {% if profile_form.instance.banner_image and profile_form.instance.banner_image.url %}
+        <div style="margin-top: 10px; border: 1px solid #ddd; padding: 10px; border-radius: 4px; background-color: #f9f9f9;">
+          <p style="font-weight:500; margin-top:0; margin-bottom: 8px;">Current Banner Preview:</p>
+          <img src="{{ profile_form.instance.banner_image.url }}" alt="Current Banner" style="max-width: 100%; max-height: 150px; border-radius: 4px; margin-bottom: 8px; display: block; border: 1px solid #eee;">
+        </div>
+        {% endif %}
+      </div>
+
+      <button type="submit" class="button">Save Changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

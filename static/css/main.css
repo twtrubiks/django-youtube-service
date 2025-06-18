@@ -1,0 +1,1184 @@
+/* Global styles for YouTube clone */
+body {
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    background-color: #f9f9f9; /* YouTube's light background */
+    color: #0f0f0f; /* YouTube's primary text color */
+    font-size: 14px;
+}
+
+a {
+    text-decoration: none;
+    color: #065fd4; /* YouTube's link color */
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Header / Navigation Bar */
+header {
+    background-color: #ffffff;
+    padding: 0 16px; /* YouTube's typical padding */
+    height: 56px;
+    display: flex;
+    align-items: center;
+    /* justify-content: space-between; Will be handled by flex properties of children */
+    border-bottom: 1px solid #ddd;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+/* Logo */
+header h1 {
+    font-size: 20px;
+    font-weight: 500;
+    color: #030303;
+    margin: 0;
+    margin-right: 40px; /* Space between logo and search */
+    flex-shrink: 0;
+}
+
+header h1 a {
+    color: inherit;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+}
+
+/* Search Form - Centered */
+.header-search-form {
+    display: flex;
+    align-items: center; /* Revert to center, rely on internal padding/line-height */
+    flex-grow: 1; /* Allows it to take up space relative to other flex items */
+    line-height: normal; /* Set line-height on the flex container */
+    min-width: 200px; /* Minimum width for search */
+    max-width: 720px; /* Max width for search bar */
+    margin: 0 auto; /* Helps in centering if not fully grown */
+    height: 40px;
+}
+
+.header-search-form input[type="text"] {
+    flex-grow: 1;
+    padding: 0 12px; /* Revert to zero vertical padding */
+    border: 1px solid #ccc;
+    border-right: none;
+    border-radius: 40px 0 0 40px;
+    font-size: 16px;
+    height: 100%; /* Revert to 100% height */
+    box-sizing: border-box;
+    outline: none;
+    line-height: normal; /* Revert to normal line-height */
+    /* vertical-align: middle; Removed as align-items: center on parent should handle this */
+}
+
+.header-search-form input[type="text"]:focus {
+    border-color: #1c62b9;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.1);
+}
+
+.header-search-form input[type="text"]::placeholder {
+    color: #6c757d; /* Standard placeholder color */
+    /* Inherit line-height and other properties from input */
+}
+
+.header-search-form button {
+    background-color: #f8f8f8;
+    border: 1px solid #ccc;
+    height: 100%; /* Revert to 100% height */
+    width: 64px;
+    cursor: pointer;
+    border-radius: 0 40px 40px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0; /* Revert to zero padding for button */
+    box-sizing: border-box; /* Ensure consistent height calculation with input */
+    outline: none; /* Match input field's outline property */
+    font-size: 16px; /* Match input field's font-size for consistency */
+    line-height: normal; /* Explicitly set to normal */
+    /* vertical-align: middle; Removed as align-items: center on parent should handle this */
+}
+
+.header-search-form button:hover {
+    background-color: #f0f0f0;
+    border-color: #bbb;
+    box-shadow: 0 1px 0 rgba(0,0,0,.06);
+}
+
+.header-search-form button svg {
+    fill: #606060;
+    width: 24px;  /* Explicit width for the icon */
+    height: 24px; /* Explicit height for the icon */
+}
+
+.header-search-form button:focus {
+    background-color: #f0f0f0; /* Match :hover state */
+    border-color: #bbb;       /* Match :hover state */
+    box-shadow: 0 1px 0 rgba(0,0,0,.06); /* Match :hover state */
+}
+
+/* Navigation Links (Right side) */
+.header-nav-links {
+    margin-left: 40px; /* Space between search and nav links */
+    flex-shrink: 0;
+}
+
+.header-nav-links ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+}
+
+.header-nav-links ul li {
+    margin-left: 24px;
+}
+
+.header-nav-links ul li:first-child {
+    margin-left: 0;
+}
+
+.header-nav-links ul li a {
+    color: #0f0f0f;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 8px 0;
+}
+
+.header-nav-links ul li a:hover {
+    color: #065fd4;
+    text-decoration: none;
+}
+/* Styles for the notification item in the nav bar */
+.header-nav-links ul li.notification-item {
+    /* Ensures the li itself aligns well if its content needs specific alignment */
+    display: flex;
+    align-items: center;
+}
+
+.header-nav-links ul li.notification-item .notification-area {
+    /* Inherit font styles for consistency if any text were inside, though bell is an icon */
+    /* No specific styles needed here if #notification-bell-icon handles alignment */
+}
+
+.header-nav-links ul li.notification-item #notification-bell-icon {
+    display: flex; /* Helps center the bell icon if it's an SVG or has internal structure */
+    align-items: center;
+    padding: 8px 0; /* Match vertical padding of other nav links */
+    line-height: 1; /* Ensure icon is not pushed by line height */
+}
+
+/* Adjust dropdown position slightly if needed, now that it's in a list item */
+.header-nav-links ul li.notification-item #notification-dropdown {
+    /* top: 100%; is usually fine, but if header height is fixed, ensure it drops correctly */
+    /* right: 0; is also usually fine */
+}
+
+/* Container for page content */
+.container {
+    width: calc(100% - 48px); /* Full width with padding */
+    max-width: 1280px; /* Max width for larger screens */
+    margin: 24px auto;
+    padding: 0; /* Remove old padding */
+    background-color: transparent; /* Let body background show */
+    box-shadow: none; /* Remove old shadow */
+}
+
+/* Basic Card style for video items, channel info etc. */
+.card {
+    background-color: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    padding: 16px;
+}
+
+/* Buttons */
+button, input[type="submit"], .button {
+    background-color: #065fd4; /* YouTube's blue */
+    color: white;
+    padding: 10px 16px;
+    border: none;
+/* Active state for primary button (e.g., selected Like button) */
+.button.active {
+    background-color: #043e8c; /* Even darker blue */
+    font-weight: bold;
+}
+
+/* Active state for secondary/danger button (e.g., selected Dislike button) */
+.button-secondary.active-danger, .button.active-danger { /* Ensure it works for base button too if used */
+    background-color: #d93025; /* YouTube's red for active dislike */
+    color: white;
+    border-color: #d93025;
+    font-weight: bold;
+}
+    border-radius: 2px; /* YouTube's subtle border radius */
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+button:hover, input[type="submit"]:hover, .button:hover {
+    background-color: #054cb0; /* Darker blue on hover */
+}
+
+/* Secondary button style (e.g., cancel, less prominent actions) */
+.button-secondary {
+    background-color: #f8f8f8;
+    color: #0f0f0f;
+    border: 1px solid #ccc;
+}
+
+.button-secondary:hover {
+    background-color: #eee;
+    border-color: #bbb;
+}
+
+
+/* Forms */
+form p {
+    margin-bottom: 16px;
+}
+
+form label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+form input[type="text"],
+form input[type="email"],
+form input[type="password"],
+form input[type="file"],
+form textarea {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box; /* Important for width 100% */
+    font-size: 14px;
+}
+
+form input[type="text"]:focus,
+form input[type="email"]:focus,
+form input[type="password"]:focus,
+/* Section Titles (e.g., "Latest Videos") */
+.section-title {
+    font-size: 20px; /* YouTube's typical section title size */
+    font-weight: 500;
+    margin-top: 24px; /* Space above the title */
+    margin-bottom: 16px; /* Space below the title, before content */
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e0e0e0;
+}
+form input[type="file"]:focus,
+form textarea:focus {
+    border-color: #065fd4;
+    outline: none;
+    box-shadow: 0 0 0 1px #065fd4;
+}
+
+form button[type="submit"] { /* Style for submit buttons within forms */
+    margin-top: 10px;
+}
+
+/* Messages (success, error, info) */
+.messages {
+    list-style-type: none;
+    padding: 0;
+    margin-bottom: 1em;
+}
+.messages li {
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+.messages li.success {
+    background-color: #e6f4ea;
+    color: #1e8e3e;
+    border: 1px solid #a8d8b9;
+}
+.messages li.error {
+    background-color: #fce8e6;
+    color: #d93025;
+    border: 1px solid #f4c5c0;
+}
+.messages li.info {
+    background-color: #e8f0fe;
+    color: #1a73e8;
+    border: 1px solid #c2d8fc;
+}
+
+/* Video Grid (for home page, search results, channel page) */
+.video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Responsive grid */
+    gap: 20px;
+}
+
+.video-item {
+    background-color: #fff; /* Or transparent if you want body bg */
+    border-radius: 4px;
+    overflow: hidden; /* To clip thumbnail if it's larger */
+}
+
+.video-item a {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.video-thumbnail img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9; /* Maintain 16:9 aspect ratio */
+    object-fit: cover;
+    background-color: #eee; /* Placeholder color */
+    display: block;
+}
+
+.video-info {
+    padding: 12px;
+}
+
+.video-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: #0f0f0f;
+    margin: 0 0 4px 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Limit to 2 lines */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+}
+
+.video-uploader, .video-views {
+    font-size: 12px;
+    color: #606060;
+    margin-bottom: 2px;
+}
+
+/* Video Detail Page Specifics */
+.video-player-container {
+    width: 100%;
+    max-width: 900px; /* Or adjust as needed */
+    margin-bottom: 20px;
+}
+
+.video-player-container video {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    background-color: #000;
+}
+
+.video-detail-info h2 { /* Video title on detail page */
+    font-size: 20px;
+    font-weight: 500;
+    margin-top: 0;
+    margin-bottom: 8px;
+}
+
+.video-detail-meta {
+    font-size: 14px;
+    color: #606060;
+    margin-bottom: 16px;
+}
+
+.video-description {
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    white-space: pre-wrap; /* Preserve line breaks */
+}
+
+/* Comments Section */
+.comments-section h3 {
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+}
+
+.comment {
+    display: flex;
+    margin-bottom: 16px;
+}
+
+.comment-author-avatar img { /* Placeholder for avatar */
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #ccc;
+    margin-right: 12px;
+}
+
+.comment-content .comment-author {
+    font-weight: 500;
+    font-size: 13px;
+    margin-right: 6px;
+}
+.comment-content .comment-timestamp {
+    font-size: 12px;
+    color: #606060;
+}
+.comment-content .comment-text {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-top: 4px;
+}
+
+.comment-form textarea {
+    min-height: 60px;
+    margin-bottom: 8px;
+}
+/* Authentication Form Container (Login, Register) */
+.auth-form-container {
+    max-width: 400px;
+    margin: 40px auto; /* Centering the form */
+    padding: 24px;
+    /* .card class already provides background and border, so we might not need to repeat it here if .card is applied */
+}
+
+.auth-form-container h2 {
+    text-align: center;
+    margin-bottom: 24px;
+    font-size: 24px;
+    font-weight: 500;
+    color: #0f0f0f;
+}
+
+.auth-form-container form p { /* Spacing for form elements rendered by {{ form.as_p }} */
+    margin-bottom: 16px;
+}
+
+.auth-form-container form label {
+    font-weight: 500; /* Make labels a bit bolder if needed */
+}
+
+.auth-form-container .button { /* Ensure button is full width */
+    width: 100%;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    font-size: 15px;
+}
+
+.auth-form-container p a { /* Link to register/login page */
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    font-size: 14px;
+}
+/* Channel Page Specific Styles */
+.channel-banner {
+    width: 100%;
+    height: 180px; /* Adjust height as needed */
+    background-color: #e0e0e0; /* Placeholder color for banner */
+    margin-bottom: 24px;
+    /* background-image: url('path/to/default-banner.jpg'); */ /* Optional default banner */
+    background-size: cover;
+    background-position: center;
+}
+
+.channel-header-info {
+    display: flex;
+    align-items: center;
+    padding: 0 16px; /* Padding within the container if .container is not used directly on this element */
+    margin-bottom: 24px;
+}
+
+.channel-avatar-container {
+    margin-right: 24px;
+}
+
+.channel-avatar {
+    width: 80px; /* YouTube's typical avatar size on channel page */
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: #ccc; /* Placeholder if image fails to load */
+}
+
+.channel-avatar-placeholder {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background-color: #606060; /* Darker placeholder */
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px; /* Large initial */
+    font-weight: 500;
+}
+
+.channel-meta {
+    flex-grow: 1;
+}
+
+.channel-name {
+    font-size: 24px;
+    font-weight: 700; /* Bold channel name */
+    color: #0f0f0f;
+    margin: 0 0 4px 0;
+}
+
+.channel-stats { /* For subscriber count, video count etc. */
+    font-size: 13px;
+    color: #606060;
+    margin-bottom: 4px;
+}
+
+.channel-description {
+    font-size: 13px;
+    color: #606060;
+    line-height: 1.4;
+    margin-bottom: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Limit description to 2 lines */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.channel-actions {
+    margin-left: auto; /* Pushes buttons to the right */
+}
+
+.channel-actions .button {
+    text-transform: uppercase;
+    font-weight: 500;
+    padding: 10px 16px;
+}
+
+.channel-actions .button-secondary { /* For "Subscribed" or "Edit Profile" */
+    background-color: #f2f2f2;
+    color: #0f0f0f;
+}
+.channel-actions .button-secondary:hover {
+    background-color: #e8e8e8;
+}
+/* Notification Bell Styles */
+.notification-area {
+    position: relative;
+}
+
+#notification-bell-icon {
+    cursor: pointer;
+    font-size: 24px;
+    color: #606060;
+    position: relative; /* For positioning the dot and count */
+}
+
+#notification-indicator-dot {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    background-color: red;
+    border-radius: 50%;
+    border: 1px solid white;
+}
+
+#notification-count {
+    position: absolute;
+    top: -5px;
+    right: -8px;
+    background-color: red;
+    color: white;
+    border-radius: 50%;
+    padding: 1px 5px;
+    font-size: 10px;
+    line-height: 1;
+}
+
+#notification-dropdown {
+    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+    opacity: 0; /* Initial state for transition */
+    transform: translateY(-10px); /* Initial state for transition */
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background-color: white;
+    border: 1px solid #ccc;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* Softer shadow */
+    width: 360px; /* Increased width */
+    max-height: 450px; /* Increased max height */
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 1000;
+    text-align: left;
+    border-radius: 8px; /* Rounded corners */
+    /* overflow: hidden;  Ensure content respects border-radius -- REMOVED as it might conflict with overflow-y: auto */
+}
+
+/* Notification Dropdown Header */
+#notification-dropdown .notification-dropdown-header {
+    padding: 12px 16px; /* Adjusted padding */
+    font-size: 16px;
+    font-weight: 500; /* Roboto Medium */
+    color: #0f0f0f; /* YouTube's primary text color */
+    border-bottom: 1px solid #e0e0e0; /* Separator line */
+    background-color: #f9f9f9; /* Light background for header */
+}
+
+#notification-dropdown.visible { /* JS can add this class to show */
+    display: block !important; /* Ensure it's visible */
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#notification-dropdown-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#notification-dropdown-list .notification-item {
+    padding: 16px; /* Uniform padding */
+    border-bottom: 1px solid #e9e9e9; /* Slightly darker border */
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: block; /* Ensure it behaves as a block element for stacking */
+}
+
+#notification-dropdown-list .notification-item:last-child {
+    border-bottom: none;
+}
+
+#notification-dropdown-list .notification-item:hover {
+    background-color: #f0f0f0; /* Subtle hover effect */
+}
+
+#notification-dropdown-list .notification-item:last-child {
+    border-bottom: none;
+}
+
+#notification-dropdown-list .notification-item.unread {
+    background-color: #e8f0fe; /* Light blue for unread */
+}
+
+#notification-dropdown-list .notification-item .notification-item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px; /* Increased spacing between elements */
+}
+
+#notification-dropdown-list .notification-item .notification-title {
+    font-weight: 500; /* Roboto medium */
+    font-size: 14px; /* Slightly adjusted size */
+    color: #0f0f0f;
+    margin: 0 0 2px 0; /* Add small bottom margin */
+    line-height: 1.4;
+}
+
+#notification-dropdown-list .notification-item .notification-details {
+    font-size: 13px;
+    color: #606060;
+    line-height: 1.5; /* Slightly increased line height for readability */
+    margin: 0;
+}
+
+#notification-dropdown-list .notification-item a.notification-link {
+    font-size: 13px;
+    font-weight: 500; /* Make it slightly bolder */
+    color: #065fd4; /* Consistent YouTube blue */
+    text-decoration: none;
+    margin-top: 8px; /* More space above */
+}
+
+#notification-dropdown-list .notification-item .notification-timestamp {
+    font-size: 12px; /* Slightly larger */
+    color: #717171; /* Slightly darker grey */
+    margin-top: 6px; /* More space above */
+    text-align: right; /* Align to the right */
+}
+
+/* This second rule for a.notification-link seems redundant or conflicting.
+   The one above already sets color to #065fd4.
+   If this is for a different context, it needs more specific selectors.
+   For now, I'll assume the first one is the primary one to keep and the hover effect.
+*/
+#notification-dropdown-list .notification-item a.notification-link:hover { /* Keep hover from the second block */
+    text-decoration: underline;
+}
+/* Removing the specific color: #007bff; rule here as it conflicts with the #065fd4 above.
+   If #007bff is needed for a specific case, the selector should be more specific.
+   Example:
+   #notification-dropdown-list .notification-item.special-type a.notification-link { color: #007bff; }
+*/
+
+#notification-dropdown-list .notification-item img {
+    margin-top: 8px;
+    border-radius: 4px;
+    max-width: 120px; /* Slightly larger thumbnail */
+    height: auto;
+    object-fit: cover;
+    aspect-ratio: 16 / 9;
+}
+
+#notification-dropdown-list .no-notifications-placeholder {
+    padding: 20px; /* More padding */
+    text-align: center;
+    color: #888;
+    font-size: 14px; /* Consistent font size */
+}
+
+/* Specific styles for notification types */
+/* These can remain as they are */
+.new-video-notification strong {
+    color: #28a745; /* Green */
+}
+
+.new-reply-notification strong {
+    color: #17a2b8; /* Cyan */
+}
+/* Styles for username display in header */
+.header-nav-links .username-display-container {
+    display: flex;
+    align-items: center; /* Vertically align if needed */
+    padding: 0 10px; /* Add some padding */
+}
+
+.header-nav-links .username-display {
+    color: #333; /* Darker text color for better readability */
+    font-weight: 500; /* Slightly bolder */
+    margin-right: 10px; /* Space before the next item (e.g., notification bell) */
+}
+
+/* Adjust existing notification item margin if needed, or rely on username-display margin-right */
+.header-nav-links .notification-item {
+    /* Example: margin-left: 5px; if username-display doesn't have margin-right */
+}
+/* User Menu Dropdown Styles */
+.header-nav-links .user-menu-container {
+    position: relative; /* Establishes a positioning context for the dropdown */
+}
+
+.header-nav-links .username-display {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 8px 0; /* Match other nav link vertical padding */
+    color: #0f0f0f;
+    font-weight: 500;
+}
+
+.header-nav-links .username-display svg {
+    fill: #606060; /* Icon color */
+    margin-left: 5px;
+    width: 20px; /* Explicit size */
+    height: 20px; /* Explicit size */
+    transition: transform 0.2s ease-in-out;
+}
+
+.header-nav-links .user-menu-container .username-display:hover svg {
+    fill: #0f0f0f;
+}
+.header-nav-links .user-menu-container.open .username-display svg {
+    transform: rotate(180deg);
+}
+
+
+.user-dropdown-menu {
+    display: none; /* Hidden by default, JS will toggle */
+    position: absolute;
+    top: calc(100% + 5px); /* Position below the trigger, with a small gap */
+    right: 0;
+    background-color: #fff;
+    min-width: 180px; /* Adequate width for items like "Edit Profile" */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* Softer shadow */
+    z-index: 1001; /* Ensure it's above other content but potentially below modals */
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px 0; /* Padding inside the dropdown box */
+    /* list-style-type and margin moved to ul */
+}
+
+.user-dropdown-menu ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    display: block; /* Explicitly set ul to block */
+}
+
+.user-dropdown-menu ul li {
+    /* No margin needed here if padding is on links */
+    display: block !important; /* Force display: block to override other styles */
+    /* width: 100%; Removed as display:block should handle this */
+}
+
+/* Add border to the first list item to separate it from the next */
+.user-dropdown-menu ul li:first-child {
+    border-bottom: 1px solid #eee;
+}
+
+.user-dropdown-menu ul li a {
+    display: block;
+    padding: 10px 16px; /* Comfortable padding for links */
+    text-decoration: none;
+    color: #0f0f0f; /* Standard text color */
+    font-size: 14px;
+    /* white-space: nowrap; Removed as it's likely not needed for these short items and text-align handles alignment */
+    text-align: left; /* Ensure text is explicitly left-aligned */
+}
+
+.user-dropdown-menu ul li a:hover {
+    background-color: #f0f0f0; /* Hover effect for links */
+    color: #030303;
+    text-decoration: none;
+}
+
+/* Optional: Add a separator if needed between groups of items */
+.user-dropdown-menu ul li.separator {
+    height: 1px;
+    background-color: #eee;
+    margin: 8px 0;
+}
+
+/* Ensure the username display container itself doesn't have conflicting styles */
+.header-nav-links .username-display-container {
+    /* This class was used before, ensure it doesn't conflict or remove if not needed */
+    /* If .user-menu-container is the new top-level li, this might be obsolete */
+}
+
+/* Adjustments for login/register links if they are styled similarly */
+.header-nav-links ul li.auth-link a {
+    /* Styles for login/register if they need to look like buttons or distinct */
+}
+
+/* Ensure dropdown arrow in username trigger is vertically centered */
+#user-menu-trigger svg {
+    transition: transform 0.2s ease-in-out;
+}
+
+#user-menu-trigger.open svg { /* Assuming JS adds 'open' class to trigger */
+    transform: rotate(180deg);
+}
+
+/* Styling for the "Hi, username" text itself if needed */
+.username-text {
+    /* e.g., margin-right: 5px; if icon is separate */
+}
+/* Edit Profile Page Styles */
+.form-field {
+    margin-bottom: 1.5rem; /* Increased margin for better separation */
+}
+
+.form-field p strong, /* For labels like "Banner image:" */
+.form-field > p:first-child { /* For manually added <p> labels */
+    font-weight: 500; /* Consistent with other labels */
+    font-size: 15px; /* Slightly larger label */
+    color: #0f0f0f;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+/* Styling for Django's ClearableFileInput widget parts */
+.form-field input[type="file"] {
+    /* The "Change:" file input - use existing styles but ensure consistency */
+    /* Django might render this differently, so we target the input directly */
+    border: 1px solid #ccc;
+    padding: 8px 10px;
+    border-radius: 4px;
+    display: inline-block; /* Or block if it should take full width */
+    margin-top: 5px; /* Space from "Clear" checkbox if present */
+}
+
+/* "Currently: ..." text and "Clear" checkbox container */
+/* Django usually wraps these, or they are siblings of the input. */
+/* We might need to inspect the rendered HTML to be more precise if this doesn't work. */
+.form-field a[href*="/media/banner_pics/"] { /* Link to current banner image */
+    display: inline-block;
+    margin-right: 10px;
+    word-break: break-all;
+}
+
+.form-field label[for$="-clear_id"] { /* Label for "Clear" checkbox */
+    font-weight: normal;
+    font-size: 13px;
+    margin-left: 5px;
+}
+
+.form-field input[type="checkbox"]#id_banner_image-clear {
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+
+/* Current Banner Preview Section in edit_profile.html */
+.current-banner-preview-container {
+    margin-top: 10px;
+    border: 1px solid #e0e0e0; /* Lighter border */
+    padding: 15px;
+    border-radius: 4px;
+    background-color: #f9f9f9; /* Light background */
+}
+
+.current-banner-preview-container p.preview-title {
+    font-weight: 500;
+    font-size: 14px;
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #0f0f0f;
+}
+
+.current-banner-preview-container img {
+    max-width: 100%;
+    max-height: 200px; /* Increased max-height for better preview */
+    border-radius: 4px;
+    margin-bottom: 10px;
+    display: block;
+    border: 1px solid #eee; /* Subtle border for the image */
+}
+
+.current-banner-preview-container .button-danger {
+    /* Ensure danger button styles are applied if not already specific enough */
+    background-color: #cc0000; /* YouTube's red */
+    color: white;
+    text-transform: uppercase;
+    font-weight: 500;
+    padding: 8px 12px; /* Smaller padding for small button */
+    font-size: 13px;
+}
+
+.current-banner-preview-container .button-danger:hover {
+    background-color: #aa0000; /* Darker red on hover */
+}
+
+/* Adjustments for the main "Save Changes" button if needed */
+.edit-profile-form .button[type="submit"] {
+    margin-top: 20px; /* More space before save button */
+    padding: 12px 20px; /* Larger save button */
+}
+
+/* Ensure the form elements within .form-field are styled consistently */
+.form-field textarea,
+.form-field input[type="text"], /* For other potential fields */
+.form-field input[type="email"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 14px;
+    margin-top: 0.25rem; /* Small space after label */
+}
+
+.form-field textarea:focus,
+.form-field input[type="text"]:focus,
+.form-field input[type="email"]:focus,
+.form-field input[type="file"]:focus {
+    border-color: #065fd4;
+    outline: none;
+    box-shadow: 0 0 0 1px #065fd4;
+}
+
+/* Helper text and error messages */
+.form-field .form-text.text-muted {
+    font-size: 0.85em;
+    color: #606060;
+    display: block;
+    margin-top: 0.3rem;
+}
+
+.form-field .alert.alert-danger {
+    font-size: 0.85em;
+    color: #d93025; /* YouTube's error red */
+    background-color: #fce8e6;
+    border: 1px solid #f4c5c0;
+    padding: 8px 10px;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+}
+/* Custom styles for ClearableFileInput "Clear" functionality */
+
+/* Hide the default checkbox, we'll style its label as a button */
+.form-field input[type="checkbox"][id$="-clear_id"] {
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    position: absolute;
+    margin: 0;
+    padding: 0;
+    border: none;
+    overflow: hidden; /* Ensure it's completely hidden */
+}
+
+/* Style the label for the "Clear" checkbox to look like a delete button */
+.form-field label[for$="-clear_id"] {
+    display: inline-flex; /* Use flex to align icon and text */
+    align-items: center;
+    background-color: #fef0f0; /* Softer light red background */
+    color: #d93025; /* Red text color (YouTube's error red) */
+    border: 1px solid #fbc6c4; /* Softer red border */
+    padding: 7px 12px; /* Slightly more padding */
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    margin-top: 8px; /* Space from "Currently" link or top of its line */
+    margin-left: 0; /* Reset any previous left margin */
+    line-height: 1.2; /* Ensure text and icon align well */
+}
+
+/* Add a trash icon using a pseudo-element */
+.form-field label[for$="-clear_id"]::before {
+    content: '🗑️'; /* Trash can emoji */
+    margin-right: 7px; /* Space between icon and text */
+    font-size: 1.15em; /* Adjust icon size */
+    line-height: 1; /* Prevent icon from affecting line height too much */
+}
+
+/* Add more explicit text using a pseudo-element if the original label text is just "Clear" */
+/* This assumes the original label text is "Clear". If not, this might duplicate. */
+/* For now, let's assume the label text itself is "Clear" and we are enhancing it. */
+/* If you want to replace "Clear" text entirely, you might need JS or to customize the widget's template. */
+/* We can add "(移除)" to the existing "Clear" text if it's there. */
+/* For now, the icon and button styling should be the main cue. */
+
+
+.form-field label[for$="-clear_id"]:hover {
+    background-color: #f8d7da; /* Slightly darker red on hover */
+    color: #721c24; /* Darker text color on hover */
+    border-color: #f5c6cb;
+}
+
+/* Styling for when the hidden checkbox is checked - make label appear "active" */
+.form-field input[type="checkbox"][id$="-clear_id"]:checked + label[for$="-clear_id"] {
+    background-color: #d93025; /* Strong red background when active */
+    color: #fff; /* White text when active */
+    border-color: #ac261f; /* Darker border when active */
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.form-field input[type="checkbox"][id$="-clear_id"]:checked + label[for$="-clear_id"]::before {
+    filter: brightness(0) invert(1); /* Make icon white if it's an emoji that supports filter */
+}
+
+
+/* Style the "Currently: <filename>" link */
+.form-field a[href*="/media/"] {
+    font-size: 0.9em;
+    color: #555;
+    margin-right: 10px;
+    vertical-align: middle; /* Align with the (now hidden) checkbox's original position */
+    display: inline-block;
+    margin-bottom: 5px; /* Space before the clear button if it's on a new line */
+}
+
+/* Ensure the "Change:" file input is styled and spaced appropriately */
+.form-field input[type="file"] { /* General file input for "Change:" */
+    margin-top: 10px; /* Space from the "Clear" button or "Currently" link */
+    display: block; /* Make it take its own line for clarity */
+}
+
+/* If there's a <br> tag used by Django widget, this might also be relevant */
+.form-field br {
+    display: none; /* Attempt to hide default <br> if it interferes with new layout */
+}
+/* If the "Clear" label and "Change" input are separated by <br>, manage spacing */
+.form-field label[for$="-clear_id"] + br + input[type="file"] {
+    margin-top: 10px;
+}
+.form-field input[type="checkbox"][id$="-clear_id"] + label[for$="-clear_id"] + br + input[type="file"]{
+    margin-top:10px;
+}
+/* Tag input styles */
+.tag-input-container {
+    border: 1px solid #ccc;
+    padding: 8px;
+    border-radius: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    background-color: #fff; /* Or a dark background like in the image */
+}
+
+.tag-pills-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px; /* Spacing between pills */
+    margin-bottom: 0; /* Reset margin if inside a p tag */
+}
+
+.tag-pill {
+    background-color: #555; /* Dark background for pill */
+    color: white;
+    padding: 5px 10px;
+    border-radius: 15px; /* Rounded pill shape */
+    display: flex;
+    align-items: center;
+    font-size: 0.9em;
+    line-height: 1;
+}
+
+.tag-pill .remove-tag {
+    margin-left: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #eee;
+    font-size: 1.1em;
+}
+
+.tag-pill .remove-tag:hover {
+    color: white;
+}
+
+.tag-text-input {
+    border: none;
+    outline: none;
+    flex-grow: 1;
+    padding: 6px 0; /* Match pill padding for alignment */
+    margin-left: 6px; /* Space after the last pill or if no pills */
+    background-color: transparent; /* Make it blend with container */
+    color: #333; /* Or white if container is dark */
+    min-width: 150px; /* Ensure it has some width to type */
+}
+
+/* Adjust if your main.css has conflicting styles for inputs */
+.tag-input-container input[type="text"].tag-text-input {
+    box-shadow: none; /* Remove default browser/framework shadows */
+    height: auto; /* Override fixed heights if any */
+    margin-bottom: 0; /* Override default margins */
+}
+
+/* Example for dark theme like the image provided */
+/*
+.tag-input-container {
+    background-color: #2d2d2d;
+    border-color: #444;
+}
+.tag-text-input {
+    color: #f1f1f1;
+}
+.tag-text-input::placeholder {
+    color: #888;
+}
+.tag-pill {
+    background-color: #4a4a4a;
+    color: #e0e0e0;
+}
+.tag-pill .remove-tag {
+    color: #ccc;
+}
+.tag-pill .remove-tag:hover {
+    color: #fff;
+}
+*/

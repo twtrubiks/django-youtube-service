@@ -1,0 +1,69 @@
+
+x-base-app-setting: &x-base-app
+  image: youtube-service-app
+  build: .
+  volumes:
+    - .:/youtube_service
+
+services:
+
+    redis-django:
+      container_name: redis
+      image: redis
+      restart: always
+      # ports:
+      #   - "6379:6379"
+      volumes:
+        - redis-django-data:/data
+      healthcheck:
+        test: ["CMD", "redis-cli", "--raw", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
+    worker:
+      <<: *x-base-app
+      command: celery -A youtube_service worker -l info
+      restart: always
+      depends_on:
+        - app
+        - redis-django
+
+    test:
+      # 這個服務專門用來跑測試
+      # docker compose up   # 啟動常規服務，跳過測試。。
+      # docker compose --profile testing up # 啟動所有 被標記 profile: "testing" 的服務
+      <<: *x-base-app
+      command: bash -c "coverage run manage.py test && coverage report && coverage html"
+      # command: bash -c "python manage.py test videos"
+      profiles:
+        - "testing"
+      depends_on:
+        redis-django:
+          condition: service_healthy
+
+    django-postgres:
+      image: postgres:16
+      # ports:
+      #   - "5432:5432"
+      environment:
+        - POSTGRES_DB=postgres
+        - POSTGRES_USER=myuser
+        - POSTGRES_PASSWORD=password123
+        - PGDATA=/var/lib/postgresql/data/pgdata
+      volumes:
+        - db-data:/var/lib/postgresql/data/pgdata
+
+    app:
+      <<: *x-base-app
+      command: bash -c "python manage.py runserver 0.0.0.0:8000"
+      restart: always
+      ports:
+        - "8000:8000"
+      depends_on:
+        - redis-django
+        - django-postgres
+
+volumes:
+    redis-django-data:
+    db-data:

@@ -1,0 +1,18 @@
+{% extends "users/base.html" %}
+
+{% block title %}確認刪除影片 - {{ video.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>確認刪除影片</h2>
+    <hr>
+    <p>您確定要刪除影片 <strong>"{{ video.title }}"</strong> 嗎？</p>
+    <p>此操作無法復原。</p>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">確認刪除</button>
+        <a href="{% url 'videos:video_detail' video.id %}" class="btn btn-secondary">取消</a>
+    </form>
+</div>
+{% endblock %}
