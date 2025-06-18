@@ -1,0 +1,49 @@
+{% extends "users/base.html" %}
+
+{% block title %}Home - MyTube{% endblock %}
+
+{% block head_extra %}
+{# This block can be used to add extra head elements on a per-page basis #}
+{# We removed the inline styles from here, but the block itself should remain #}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    {# Removed featured video section for simplicity with new CSS, can be re-added with new styling later if needed #}
+
+    <h2 class="section-title">Latest Videos</h2>
+    {% if videos %}
+    <div class="video-grid">
+        {% for video in videos %}
+        <div class="video-item">
+            <a href="{% url 'videos:video_detail' video.id %}">
+                <div class="video-thumbnail">
+                    {% if video.thumbnail %}
+                        <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail">
+                    {% else %}
+                        <div style="width:100%; aspect-ratio: 16/9; background-color: #eee; display:flex; align-items:center; justify-content:center; color:#666;">No Thumbnail</div>
+                    {% endif %}
+                </div>
+            </a>
+            <div class="video-info">
+                <h3 class="video-title">
+                    <a href="{% url 'videos:video_detail' video.id %}">{{ video.title }}</a>
+                </h3>
+                <div class="video-uploader">
+                    <a href="{% url 'users:channel' video.uploader.username %}">{{ video.uploader.username }}</a>
+                </div>
+                <div class="video-views">
+                    {{ video.views_count }} views &bull; {{ video.upload_date|timesince }} ago
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+        <div class="col">
+            <p>No videos found. Upload some to get started!</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

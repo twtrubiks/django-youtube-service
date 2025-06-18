@@ -1,0 +1,206 @@
+{% extends "users/base.html" %}
+
+{% block title %}Edit Video - {{ video.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="section-title">Edit Video: {{ video.title }}</h2>
+
+    <div class="edit-video-layout"> {# Optional: Add a wrapper for layout if needed, or style form and preview directly #}
+        <form method="post" enctype="multipart/form-data" style="margin-bottom: 30px;">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+            {% for field in form %}
+                <p>
+                    {{ field.label_tag }}<br>
+                    {% if field.name == 'tags' %}
+                        <div class="tag-input-container" data-original-input-id="{{ field.auto_id }}">
+                            <div class="tag-pills-container">
+                                {# JavaScript will populate this #}
+                            </div>
+                            <input type="text" class="tag-text-input" placeholder="Add a tag and press Enter or comma">
+                        </div>
+                        <div style="display: none;">
+                            {{ field }} {# Hidden original tag input, ID is field.auto_id #}
+                        </div>
+                    {% else %}
+                        {{ field }}
+                    {% endif %}
+
+                    {% comment %} {% if field.name == "category" %}
+                        <small style="display: block; margin-top: 4px;">
+                            Can't find the category you need?
+                            <a href="{% url 'videos:add_category' %}?next={{ request.path }}">Add a new category</a>.
+                        </small>
+                    {% endif %} {% endcomment %}
+                    {% if field.help_text and field.name != 'tags' %} {# Hide default help_text for tags if any #}
+                        <small style="color: grey">{{ field.help_text }}</small>
+                    {% endif %}
+                    {% for error in field.errors %}
+                        <p style="color: red">{{ error }}</p>
+                    {% endfor %}
+                </p>
+            {% endfor %}
+            <button type="submit" class="button">Save Changes</button>
+            <a href="{% url 'videos:video_detail' video.id %}" class="button button-secondary" style="margin-left: 10px;">Cancel</a>
+        </form>
+
+        <div class="current-media-preview">
+            {% if video.video_file %}
+                <h3 style="font-size: 18px; font-weight: 500; margin-bottom: 10px;">Current Video:</h3>
+                <video controls style="width: 100%; max-width: 480px; margin-bottom: 10px; border-radius: 4px;">
+                    <source src="{{ video.video_file.url }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <p><small>If you upload a new video file, it will replace the current one.</small></p>
+            {% endif %}
+            {% if video.thumbnail %}
+                <h3 style="font-size: 18px; font-weight: 500; margin-top: 20px; margin-bottom: 10px;">Current Thumbnail:</h3>
+                <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail" style="max-width: 100%; width: 320px; height: auto; border-radius: 4px; margin-bottom: 10px; display:block;">
+                <p><small>If you upload a new thumbnail, it will replace the current one.</small></p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block body_extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const categorySelect = document.getElementById('id_category');
+    if (categorySelect) {
+        categorySelect.setAttribute('required', 'required');
+    }
+
+    console.log('[TAGS] DOMContentLoaded - Script loaded from body_extra_js.');
+
+    const tagInputContainers = document.querySelectorAll('.tag-input-container');
+    console.log(`[TAGS] Found ${tagInputContainers.length} tag input containers.`);
+
+    tagInputContainers.forEach((container, index) => {
+        console.log(`[TAGS] Processing container #${index}:`, container);
+
+        const originalInputId = container.dataset.originalInputId;
+        if (!originalInputId) {
+            console.warn(`[TAGS] Container #${index} is missing data-original-input-id attribute.`);
+            return;
+        }
+        console.log(`[TAGS] Container #${index} - Original Input ID from data attribute: ${originalInputId}`);
+
+        const originalTagInput = document.getElementById(originalInputId);
+        const tagTextInput = container.querySelector('.tag-text-input');
+        const tagPillsContainer = container.querySelector('.tag-pills-container');
+
+        if (!originalTagInput) {
+            console.warn(`[TAGS] Container #${index} - Original tag input with ID '${originalInputId}' NOT FOUND.`);
+            return;
+        }
+        console.log(`[TAGS] Container #${index} - Original tag input element:`, originalTagInput);
+
+        if (!tagTextInput) {
+            console.warn(`[TAGS] Container #${index} - Tag text input (class .tag-text-input) NOT FOUND within container.`);
+            return;
+        }
+        console.log(`[TAGS] Container #${index} - Tag text input element:`, tagTextInput);
+
+        if (!tagPillsContainer) {
+            console.warn(`[TAGS] Container #${index} - Tag pills container (class .tag-pills-container) NOT FOUND within container.`);
+            return;
+        }
+        console.log(`[TAGS] Container #${index} - Tag pills container element:`, tagPillsContainer);
+
+        let currentTags = [];
+
+        function renderTags() {
+            console.log(`[TAGS] Container #${index} - renderTags called. Current tags:`, currentTags);
+            tagPillsContainer.innerHTML = '';
+            currentTags.forEach(tag => {
+                const pill = document.createElement('div');
+                pill.classList.add('tag-pill');
+                pill.textContent = tag;
+
+                const removeBtn = document.createElement('span');
+                removeBtn.classList.add('remove-tag');
+                removeBtn.innerHTML = '&times;';
+                removeBtn.addEventListener('click', function() {
+                    console.log(`[TAGS] Container #${index} - Remove button clicked for tag: ${tag}`);
+                    currentTags = currentTags.filter(t => t !== tag);
+                    updateOriginalInput();
+                    renderTags();
+                });
+
+                pill.appendChild(removeBtn);
+                tagPillsContainer.appendChild(pill);
+            });
+        }
+
+        function updateOriginalInput() {
+            originalTagInput.value = currentTags.join(',');
+            console.log(`[TAGS] Container #${index} - Updated originalTagInput.value: ${originalTagInput.value}`);
+        }
+
+        function addTag(tag) {
+            tag = tag.trim();
+            console.log(`[TAGS] Container #${index} - addTag called with: '${tag}'`);
+            const englishNumericRegex = /^[a-zA-Z0-9]+$/; // Regex to allow only English letters and numbers
+
+            if (!tag) {
+                console.log(`[TAGS] Container #${index} - Tag is empty.`);
+                return;
+            }
+
+            if (!englishNumericRegex.test(tag)) {
+                alert('Tags can only contain English letters and numbers.'); // Provide user feedback
+                console.warn(`[TAGS] Container #${index} - Tag '${tag}' contains invalid characters.`);
+                return;
+            }
+
+            if (!currentTags.map(t => t.toLowerCase()).includes(tag.toLowerCase())) {
+                currentTags.push(tag);
+                updateOriginalInput();
+                renderTags();
+            } else {
+                console.log(`[TAGS] Container #${index} - Tag '${tag}' already exists (case-insensitive).`);
+            }
+        }
+
+        if (originalTagInput.value) {
+            console.log(`[TAGS] Container #${index} - Initializing tags from originalTagInput.value: ${originalTagInput.value}`);
+            const initialTags = originalTagInput.value.split(',')
+                                .map(t => t.trim())
+                                .filter(t => t);
+            currentTags = [...new Set(initialTags.map(t => t.trim()).filter(t => t))];
+            renderTags();
+        } else {
+            console.log(`[TAGS] Container #${index} - No initial tags in originalInput.`);
+        }
+
+        tagTextInput.addEventListener('keydown', function(event) {
+            console.log(`[TAGS] Container #${index} - Keydown event on tagTextInput. Key: ${event.key}, Code: ${event.code}`);
+            if (event.key === 'Enter' || event.key === ',') {
+                console.log(`[TAGS] Container #${index} - Enter or comma pressed. Calling event.preventDefault().`);
+                event.preventDefault();
+
+                const newTag = tagTextInput.value.trim();
+                console.log(`[TAGS] Container #${index} - New tag from input: '${newTag}'`);
+                if (newTag) {
+                    addTag(newTag);
+                    tagTextInput.value = '';
+                }
+            }
+        });
+        console.log(`[TAGS] Container #${index} - Attached keydown listener to tagTextInput.`);
+
+        tagTextInput.addEventListener('blur', function() {
+            console.log(`[TAGS] Container #${index} - Blur event on tagTextInput.`);
+            const newTag = tagTextInput.value.trim();
+            if (newTag) {
+                addTag(newTag);
+                tagTextInput.value = '';
+            }
+        });
+        console.log(`[TAGS] Container #${index} - Attached blur listener to tagTextInput.`);
+    });
+});
+</script>
+{% endblock body_extra_js %}

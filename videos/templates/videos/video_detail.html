@@ -1,0 +1,354 @@
+{% extends "users/base.html" %}
+
+{% block title %}{{ video.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="video-player-container">
+        {% if video.video_file %}
+        <video id="video-player" controls style="width: 100%; height: auto;">
+            {% if video.hls_path %}
+                <!-- HLS 播放清單將通過 JavaScript 載入 -->
+            {% else %}
+                <source src="{{ video.video_file.url }}" type="video/mp4">
+            {% endif %}
+            Your browser does not support the video tag.
+        </video>
+        {% else %}
+        <div style="width:100%; aspect-ratio: 16/9; background-color: #000; display:flex; align-items:center; justify-content:center; color:#fff;">Video file not available.</div>
+        {% endif %}
+    </div>
+
+    <div class="video-detail-info">
+        <h2>{{ video.title }}</h2>
+        <div class="video-detail-meta">
+            <span>{{ video.views_count }} views</span> &bull;
+            <span>{{ video.upload_date|date:"Y-m-d H:i" }}</span> &bull;
+            <span>Uploader: <a href="{% url 'users:channel' video.uploader.username %}">{{ video.uploader.username }}</a></span> &bull;
+            <span>Visibility: {{ video.get_visibility_display }}</span>
+            {% if video.category %}
+            &bull; <span>Category: <a href="{% url 'videos:videos_by_category' video.category.slug %}">{{ video.category.name }}</a></span>
+            {% endif %}
+        </div>
+        {% if video.tags.all %}
+        <div class="video-tags" style="margin-bottom: 10px;">
+            Tags:
+            {% for tag in video.tags.all %}
+                <a href="{% url 'videos:videos_by_tag' tag.slug %}" class="tag-link">{{ tag.name }}</a>{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if request.user == video.uploader %}
+            <a href="{% url 'videos:edit_video' video.id %}" class="button button-secondary" style="margin-bottom: 16px; display: inline-block; margin-right: 8px;">Edit Video</a>
+            <a href="{% url 'videos:delete_video' video.id %}" class="button button-danger" style="margin-bottom: 16px; display: inline-block;">Delete Video</a>
+        {% endif %}
+        <div class="video-description">
+            {{ video.description|linebreaksbr }}
+        </div>
+    </div>
+
+    <div class="interactions-section" style="margin-bottom: 20px;">
+        <h4>Likes/Dislikes</h4>
+        <div>
+            <span id="likes-count-display">Likes: {{ likes_count }}</span> |
+            <span id="dislikes-count-display">Dislikes: {{ dislikes_count }}</span>
+        </div>
+        {% if user.is_authenticated %}
+        <form id="vote-form" method="post" action="{% url 'interactions:vote_video' video.id %}" style="margin-top: 10px;">
+            {% csrf_token %}
+            <button type="submit" name="vote_type" value="like"
+                    class="button {% if user_vote == 'like' %}active{% endif %}" style="margin-right: 8px;" id="like-button">
+                Like
+            </button>
+            <button type="submit" name="vote_type" value="dislike"
+                    class="button button-secondary {% if user_vote == 'dislike' %}active-danger{% endif %}" id="dislike-button">
+                Dislike
+            </button>
+        </form>
+        {% else %}
+            <p><a href="{% url 'users:login' %}?next={{ request.path }}">Log in</a> to like or dislike.</p>
+        {% endif %}
+    </div>
+
+    <div class="comments-section">
+        <h3>Comments (<span id="comments-count">{{ comments.count }}</span>)</h3>
+        <div id="comment-form-errors" style="color: red; font-size: 0.9em; margin-bottom: 10px;"></div>
+        {% if user.is_authenticated %}
+            <form id="main-comment-form" method="post" action="{% url 'interactions:add_comment' video.id %}" class="comment-form">
+                {% csrf_token %}
+                {{ comment_form.content.label_tag }}
+                {{ comment_form.content }}
+                <button type="submit">Post Comment</button>
+            </form>
+        {% else %}
+            <p><a href="{% url 'users:login' %}?next={{ request.path }}">Log in</a> to post a comment.</p>
+        {% endif %}
+
+        <div id="comments-list">
+        {% for comment in comments %}
+            {% if not comment.parent_comment %} {# Only display top-level comments here #}
+                {% include "interactions/_comment_detail.html" with comment=comment video=video request=request %}
+            {% endif %}
+        {% empty %}
+            <p id="no-comments-message">No comments yet. Be the first to comment!</p>
+        {% endfor %}
+        </div>
+
+        <!-- HLS.js 庫 -->
+        <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+        <script>
+        // HLS 播放器初始化
+        {% if video.hls_path %}
+        document.addEventListener('DOMContentLoaded', function() {
+            const video = document.getElementById('video-player');
+            const hlsUrl = "{% url 'videos:hls_playlist' video.id %}";
+
+            if (Hls.isSupported()) {
+                const hls = new Hls({
+                    debug: false,
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                    backBufferLength: 90
+                });
+
+                hls.loadSource(hlsUrl);
+                hls.attachMedia(video);
+
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    console.log('HLS manifest loaded, found ' + hls.levels.length + ' quality level(s)');
+                });
+
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    console.error('HLS error:', data);
+                    if (data.fatal) {
+                        switch(data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                console.log('Network error, trying to recover...');
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                console.log('Media error, trying to recover...');
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                console.log('Fatal error, cannot recover');
+                                hls.destroy();
+                                // 回退到原始 MP4 文件
+                                video.src = "{{ video.video_file.url }}";
+                                break;
+                        }
+                    }
+                });
+
+                // 清理資源
+                window.addEventListener('beforeunload', function() {
+                    if (hls) {
+                        hls.destroy();
+                    }
+                });
+
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Safari 原生支援 HLS
+                video.src = hlsUrl;
+            } else {
+                // 不支援 HLS，回退到 MP4
+                console.log('HLS not supported, falling back to MP4');
+                video.src = "{{ video.video_file.url }}";
+            }
+        });
+        {% endif %}
+        </script>
+
+        <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        function toggleReplyForm(commentId) {
+            const formContainer = document.getElementById('reply-form-container-' + commentId);
+            if (formContainer) {
+                formContainer.style.display = formContainer.style.display === 'none' ? 'block' : 'none';
+                if (formContainer.style.display === 'block') {
+                    formContainer.querySelector('textarea[name="content"]').focus();
+                }
+            }
+        }
+
+        function handleCommentSubmission(form, isReply = false) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(form);
+                const commentContent = formData.get('content').trim();
+                const commentFormErrors = document.getElementById('comment-form-errors'); // General error display for main form
+
+                if (commentFormErrors && !isReply) { // Clear only for main form, replies might have their own error spots or rely on this
+                    commentFormErrors.innerHTML = '';
+                }
+
+                if (!commentContent) {
+                    if (commentFormErrors && !isReply) commentFormErrors.innerHTML = '<p>Comment cannot be empty.</p>';
+                    // For reply forms, you might want a more specific error location or alert
+                    if (isReply) alert('Reply cannot be empty.');
+                    return;
+                }
+
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': csrftoken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const commentsList = document.getElementById('comments-list');
+                        const noCommentsMessage = document.getElementById('no-comments-message');
+                        const commentsCountSpan = document.getElementById('comments-count');
+
+                        if (data.is_reply) {
+                            const parentCommentRepliesContainer = document.getElementById('replies-to-' + data.parent_comment_id);
+                            if (parentCommentRepliesContainer) {
+                                parentCommentRepliesContainer.insertAdjacentHTML('beforeend', data.comment_html);
+                                // Re-attach event listeners for new reply forms within the newly added comment_html if it contains them
+                                const newReplyForms = parentCommentRepliesContainer.querySelectorAll('.reply-form-actual');
+                                newReplyForms.forEach(newForm => {
+                                    if (!newForm.dataset.listenerAttached) { // Avoid double-attaching
+                                        handleCommentSubmission(newForm, true);
+                                        newForm.dataset.listenerAttached = 'true';
+                                    }
+                                });
+                            }
+                        } else {
+                            commentsList.insertAdjacentHTML('beforeend', data.comment_html);
+                            if (noCommentsMessage) {
+                                noCommentsMessage.style.display = 'none';
+                            }
+                             // Re-attach event listeners for new reply forms within the newly added comment_html
+                            const newTopLevelCommentElement = document.getElementById('comment-' + data.comment_id);
+                            if (newTopLevelCommentElement) {
+                                const newReplyForms = newTopLevelCommentElement.querySelectorAll('.reply-form-actual');
+                                newReplyForms.forEach(newForm => {
+                                    if (!newForm.dataset.listenerAttached) {
+                                        handleCommentSubmission(newForm, true);
+                                        newForm.dataset.listenerAttached = 'true';
+                                    }
+                                });
+                            }
+                        }
+                        form.reset(); // Reset the form that was submitted
+                        if (isReply) { // Hide reply form after successful submission
+                            const formContainer = form.closest('.reply-form-container');
+                            if (formContainer) formContainer.style.display = 'none';
+                        }
+                        // Update comments count - this might need adjustment if replies shouldn't count towards main total
+                        commentsCountSpan.textContent = parseInt(commentsCountSpan.textContent) + 1;
+
+                    } else if (data.status === 'error') {
+                        if (commentFormErrors && !isReply) {
+                            let errorMessages = '';
+                            for (const field in data.errors) {
+                                errorMessages += `<p>${field}: ${data.errors[field].join(', ')}</p>`;
+                            }
+                            if (!errorMessages && data.message) { // General message if no field errors
+                                errorMessages = `<p>${data.message}</p>`;
+                            }
+                            commentFormErrors.innerHTML = errorMessages;
+                        } else if (isReply) {
+                            // Handle reply form errors, e.g., by alerting or displaying near the form
+                            alert('Error posting reply: ' + (data.message || JSON.stringify(data.errors)));
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    if (commentFormErrors && !isReply) commentFormErrors.innerHTML = '<p>An unexpected error occurred. Please try again.</p>';
+                    if (isReply) alert('An unexpected error occurred with your reply.');
+                });
+            });
+        }
+
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Main Comment Form
+            const mainCommentForm = document.getElementById('main-comment-form');
+            if (mainCommentForm) {
+                handleCommentSubmission(mainCommentForm, false);
+            }
+
+            // Existing Reply Forms on page load
+            const replyForms = document.querySelectorAll('.reply-form-actual');
+            replyForms.forEach(form => {
+                if (!form.dataset.listenerAttached) {
+                    handleCommentSubmission(form, true);
+                    form.dataset.listenerAttached = 'true';
+                }
+            });
+
+            // Vote Form
+            const voteForm = document.getElementById('vote-form');
+            if (voteForm) {
+                voteForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(voteForm);
+                    // Get the value of the button that was clicked to submit the form
+                    const voteType = e.submitter && e.submitter.name === 'vote_type' ? e.submitter.value : null;
+                    if (voteType) {
+                        formData.append('vote_type', voteType); // Ensure vote_type is in formData if using submitter
+                    }
+
+
+                    fetch(voteForm.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': csrftoken,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            document.getElementById('likes-count-display').textContent = 'Likes: ' + data.likes_count;
+                            document.getElementById('dislikes-count-display').textContent = 'Dislikes: ' + data.dislikes_count;
+
+                            const likeButton = document.getElementById('like-button');
+                            const dislikeButton = document.getElementById('dislike-button');
+
+                            likeButton.classList.remove('active');
+                            dislikeButton.classList.remove('active-danger');
+
+                            if (data.current_user_vote_type === 'like') {
+                                likeButton.classList.add('active');
+                            } else if (data.current_user_vote_type === 'dislike') {
+                                dislikeButton.classList.add('active-danger');
+                            }
+                        } else {
+                            alert('Error: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An unexpected error occurred.');
+                    });
+                });
+            }
+        });
+        </script>
+    </div>
+</div>
+{% endblock %}

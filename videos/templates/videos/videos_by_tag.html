@@ -1,0 +1,30 @@
+{% extends "users/base.html" %}
+
+{% block title %}Videos tagged with "{{ tag.name }}"{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="section-title">Videos tagged with: "{{ tag.name }}"</h2>
+
+    {% if videos %}
+        <div class="video-grid"> {# Assuming you have a .video-grid class for styling #}
+            {% for video in videos %}
+            <div class="video-card"> {# Assuming you have a .video-card class #}
+                <a href="{% url 'videos:video_detail' video.id %}">
+                    {% if video.thumbnail %}
+                        <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail" class="video-thumbnail">
+                    {% else %}
+                        <div class="video-thumbnail-placeholder">No Thumbnail</div>
+                    {% endif %}
+                    <h3 class="video-card-title">{{ video.title }}</h3>
+                </a>
+                <p class="video-card-uploader">By: <a href="{% url 'users:channel' video.uploader.username %}">{{ video.uploader.username }}</a></p>
+                <p class="video-card-meta">{{ video.views_count }} views &bull; {{ video.upload_date|date:"Y-m-d" }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No videos found with this tag.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% comment %}This template snippet is used to render a single comment, primarily for AJAX responses.{% endcomment %}
+<div class="comment" id="comment-{{ comment.id }}">
+    <div class="comment-author-avatar">
+        <div style="width: 40px; height: 40px; background-color: #ddd; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px;">
+            {{ comment.user.username|first|upper }}
+        </div>
+    </div>
+    <div class="comment-content">
+        <span class="comment-author">{{ comment.user.username }}</span>
+        <span class="comment-timestamp">{{ comment.timestamp|timesince }} ago</span>
+        <p class="comment-text">{{ comment.content|linebreaksbr }}</p>
+
+        {% if request.user.is_authenticated %}
+        <button type="button" class="button button-small" onclick="toggleReplyForm('{{ comment.id }}')" style="margin-top: 5px; font-size: 0.9em; padding: 4px 8px;">Reply</button>
+        <div id="reply-form-container-{{ comment.id }}" class="reply-form-container" style="display:none; margin-top: 10px; padding-left: 20px;">
+            <form method="post" action="{% url 'interactions:add_comment' video.id %}" class="comment-form reply-form-actual">
+                {% csrf_token %}
+                <input type="hidden" name="parent_comment_id" value="{{ comment.id }}">
+                <div>
+                    <textarea name="content" rows="3" placeholder="Write a reply..." required style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></textarea>
+                </div>
+                <button type="submit" name="submit_reply" value="true" class="button button-small" style="margin-top: 5px;">Post Reply</button>
+            </form>
+        </div>
+        {% endif %}
+
+        {# Container for replies to this comment #}
+        <div class="replies-container" id="replies-to-{{ comment.id }}">
+            {% for reply in comment.replies.all %}
+                {% include "interactions/_comment_detail.html" with comment=reply video=video request=request %}
+            {% endfor %}
+        </div>
+    </div>
+</div>

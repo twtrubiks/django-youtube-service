@@ -1,0 +1,26 @@
+{% extends "users/base.html" %}
+
+{% block title %}Confirm Delete Category - {{ category.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Confirm Deletion</h2>
+    <hr>
+    <p>Are you sure you want to delete the category: <strong>{{ category.name }}</strong>?</p>
+
+    <p class="text-danger">
+        This action cannot be undone.
+        {% if category.videos.exists %}
+            This category currently has {{ category.videos.count }} video(s) associated with it.
+            Deleting this category will set the category of these videos to NULL.
+        {% endif %}
+    </p>
+
+    <form method="post" action="{% url 'videos:delete_category' category.id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+        <a href="{% url 'videos:home' %}" class="btn btn-secondary">Cancel</a>
+        {# Consider redirecting to a category list page if one exists #}
+    </form>
+</div>
+{% endblock %}
