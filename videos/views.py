@@ -1,27 +1,43 @@
-from django.shortcuts import render, redirect, get_object_or_404
+# 標準庫 imports
+import os
+
+# Django imports
+from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from .forms import VideoUploadForm, CategoryForm # Import CategoryForm
-from .models import Video, Category # Import Category
-from taggit.models import Tag # Import Tag
+from django.db.models import Q
+from django.http import HttpResponse, Http404
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
-from interactions.forms import CommentForm # Import CommentForm
-from interactions.models import Comment, LikeDislike # Import Comment and LikeDislike models
-from django.db.models import Q # Import Q object for complex lookups
-from django.contrib import messages # Import messages framework
-import os # Import os for file deletion
-from django.conf import settings # Import settings for MEDIA_ROOT
-from .tasks import process_video # Import Celery task
-from django.http import HttpResponse, Http404 # Import for HLS serving
+
+# 第三方庫 imports
+from taggit.models import Tag
+
+# 本地應用 imports
+from .forms import VideoUploadForm, CategoryForm
+from .models import Video, Category
+from .tasks import process_video
+from interactions.forms import CommentForm
+from interactions.models import Comment, LikeDislike
 
 @login_required
 def upload_video(request):
+    """
+    處理影片上傳功能。
+
+    Args:
+        request: HTTP 請求物件
+
+    Returns:
+        HttpResponse: 渲染的模板回應或重定向
+    """
     if request.method == 'POST':
         form = VideoUploadForm(request.POST, request.FILES)
         if form.is_valid():
             video = form.save(commit=False)
             video.uploader = request.user
             video.save()
-            form.save_m2m() # Save ManyToMany data
+            form.save_m2m()  # Save ManyToMany data
             # 觸發 Celery 任務來處理影片
             process_video.delay(video.id)
             # Redirect to the video detail page or a success page
@@ -31,6 +47,16 @@ def upload_video(request):
     return render(request, 'videos/upload_video.html', {'form': form})
 
 def video_detail(request, video_id):
+    """
+    顯示影片詳細資訊頁面。
+
+    Args:
+        request: HTTP 請求物件
+        video_id: 影片 ID
+
+    Returns:
+        HttpResponse: 渲染的影片詳細頁面
+    """
     video = get_object_or_404(Video, pk=video_id)
     comments = Comment.objects.filter(video=video).order_by('-timestamp')
     comment_form = CommentForm()
@@ -43,8 +69,12 @@ def video_detail(request, video_id):
         request.session[viewed_video_session_key] = True
 
     # Get like/dislike counts
-    likes_count = LikeDislike.objects.filter(video=video, type=LikeDislike.LIKE).count()
-    dislikes_count = LikeDislike.objects.filter(video=video, type=LikeDislike.DISLIKE).count()
+    likes_count = LikeDislike.objects.filter(
+        video=video, type=LikeDislike.LIKE
+    ).count()
+    dislikes_count = LikeDislike.objects.filter(
+        video=video, type=LikeDislike.DISLIKE
+    ).count()
 
     # Get current user's vote
     user_vote = None
@@ -53,7 +83,7 @@ def video_detail(request, video_id):
             user_vote_obj = LikeDislike.objects.get(video=video, user=request.user)
             user_vote = user_vote_obj.type
         except LikeDislike.DoesNotExist:
-            pass # User hasn't voted
+            pass  # User hasn't voted
 
     context = {
         'video': video,
@@ -61,17 +91,36 @@ def video_detail(request, video_id):
         'comment_form': comment_form,
         'likes_count': likes_count,
         'dislikes_count': dislikes_count,
-        'user_vote': user_vote, # 'like', 'dislike', or None
+        'user_vote': user_vote,  # 'like', 'dislike', or None
         'category': video.category,
         'tags': video.tags.all(),
     }
     return render(request, 'videos/video_detail.html', context)
 
 def home(request):
+    """
+    顯示首頁，列出所有公開影片。
+
+    Args:
+        request: HTTP 請求物件
+
+    Returns:
+        HttpResponse: 渲染的首頁
+    """
     videos = Video.objects.filter(visibility='public').order_by('-upload_date')
     return render(request, 'videos/home.html', {'videos': videos})
 
+
 def search_videos(request):
+    """
+    搜尋影片功能。
+
+    Args:
+        request: HTTP 請求物件
+
+    Returns:
+        HttpResponse: 渲染的搜尋結果頁面
+    """
     query = request.GET.get('query')
     videos = []
     if query:
@@ -80,7 +129,10 @@ def search_videos(request):
             visibility='public'
         ).order_by('-upload_date')
 
-    return render(request, 'videos/search_results.html', {'videos': videos, 'query': query})
+    return render(request, 'videos/search_results.html', {
+        'videos': videos,
+        'query': query
+    })
 
 @login_required
 def edit_video(request, video_id):

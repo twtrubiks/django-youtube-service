@@ -1,18 +1,32 @@
-from celery import shared_task
-import time
-from .models import Video
-import ffmpeg
-import os
-from django.conf import settings
-from django.core.files import File
+# 標準庫 imports
 import inspect
 import logging
+import os
+import time
+
+# 第三方庫 imports
+import ffmpeg
+from celery import shared_task
+
+# Django imports
+from django.conf import settings
+from django.core.files import File
+
+# 本地應用 imports
+from .models import Video
 
 logger = logging.getLogger(__name__)
+
 
 def _get_exception_message(e):
     """
     安全地從異常中提取錯誤訊息，處理 MagicMock 和 bytes 類型。
+
+    Args:
+        e: 異常物件
+
+    Returns:
+        str: 錯誤訊息字符串
     """
     if hasattr(e, 'stderr'):
         if hasattr(e.stderr, '_decode_return_value'):
@@ -30,6 +44,7 @@ def _get_exception_message(e):
         else:
             # Fallback for stderr that is not bytes and not our mock
             return str(e.stderr)
+
     # For generic exceptions or when stderr is not present/handled,
     # ensure a string representation is always returned.
     # Use object.__repr__ to avoid issues with mocked __str__ methods.
@@ -39,6 +54,12 @@ def _get_exception_message(e):
 def process_video(video_id):
     """
     處理影片任務：包含影片轉檔、縮圖產生，以及 HLS 串流格式轉換。
+
+    Args:
+        video_id (int): 要處理的影片 ID
+
+    Returns:
+        str: 處理結果訊息
     """
     try:
         video = Video.objects.get(id=video_id)
@@ -59,41 +80,58 @@ def process_video(video_id):
 
         output_file_path_full = os.path.join(output_directory_full_path, processed_file_name)
 
-        output_file_path_for_field = os.path.join('videos', processed_videos_dir_name, processed_file_name)
+        output_file_path_for_field = os.path.join(
+            'videos', processed_videos_dir_name, processed_file_name
+        )
 
-        print(f"影片 {video.title} (ID: {video.id}) 開始轉檔... 原始路徑: {original_file_path}, 輸出路徑: {output_file_path_full}")
+        print(f"影片 {video.title} (ID: {video.id}) 開始轉檔... "
+              f"原始路徑: {original_file_path}, 輸出路徑: {output_file_path_full}")
         start_time_transcoding = time.time()
         try:
             stdout_bytes, stderr_bytes = (
                 ffmpeg
                 .input(original_file_path)
-                .output(output_file_path_full, vcodec='libx264', acodec='aac', strict='experimental', movflags='faststart')
+                .output(
+                    output_file_path_full,
+                    vcodec='libx264',
+                    acodec='aac',
+                    strict='experimental',
+                    movflags='faststart'
+                )
                 .run(capture_stdout=True, capture_stderr=True, overwrite_output=True)
             )
             end_time_transcoding = time.time()
-            print(f"影片 {video.title} (ID: {video_id}) 轉檔完成。耗時: {end_time_transcoding - start_time_transcoding:.2f} 秒")
+            print(f"影片 {video.title} (ID: {video_id}) 轉檔完成。"
+                  f"耗時: {end_time_transcoding - start_time_transcoding:.2f} 秒")
+
             if stdout_bytes:
-                print(f"DEBUG: FFmpeg stdout (轉檔 {video_id}): {stdout_bytes.decode('utf8', errors='ignore')[:500]}...")
+                print(f"DEBUG: FFmpeg stdout (轉檔 {video_id}): "
+                      f"{stdout_bytes.decode('utf8', errors='ignore')[:500]}...")
             if stderr_bytes:
-                print(f"INFO: FFmpeg stderr (轉檔 {video_id}): {stderr_bytes.decode('utf8', errors='ignore')[:500]}...")
+                print(f"INFO: FFmpeg stderr (轉檔 {video_id}): "
+                      f"{stderr_bytes.decode('utf8', errors='ignore')[:500]}...")
 
             video.processing_status = 'transcoding_complete'
 
             with open(output_file_path_full, 'rb') as f:
                 video.video_file.save(processed_file_name, File(f), save=False)
 
-            if original_file_path != output_file_path_full and os.path.exists(original_file_path):
-                 print(f"INFO: 原始檔案 {original_file_path} 未自動刪除，請手動管理。")
-                 pass
+            if (original_file_path != output_file_path_full and
+                os.path.exists(original_file_path)):
+                print(f"INFO: 原始檔案 {original_file_path} 未自動刪除，請手動管理。")
 
             # 生成 HLS 文件
-            hls_success = generate_hls_files(video, output_file_path_full, file_name_without_ext)
+            hls_success = generate_hls_files(
+                video, output_file_path_full, file_name_without_ext
+            )
             if hls_success:
                 print(f"影片 {video.title} (ID: {video_id}) HLS 文件生成成功")
             else:
-                print(f"影片 {video.title} (ID: {video_id}) HLS 文件生成失敗，但不影響主要處理流程")
+                print(f"影片 {video.title} (ID: {video_id}) HLS 文件生成失敗，"
+                      f"但不影響主要處理流程")
 
-            print(f"INFO: 影片 {video.title} (ID: {video_id}) 轉檔完成，新檔案位於: {output_file_path_full}")
+            print(f"INFO: 影片 {video.title} (ID: {video_id}) 轉檔完成，"
+                  f"新檔案位於: {output_file_path_full}")
         except Exception as e:
             print(f"DEBUG: Transcoding - ffmpeg module type: {type(ffmpeg)}")
             print(f"DEBUG: Transcoding - ffmpeg.Error attribute type: {type(ffmpeg.Error if hasattr(ffmpeg, 'Error') else None)}")
@@ -104,7 +142,6 @@ def process_video(video_id):
             if isinstance(e, ffmpeg.Error):
                 video.processing_status = 'failed'
                 video.save()
-                error_message_from_exception = ""
                 error_message_from_exception = _get_exception_message(e)
                 logger.error(f"影片 {video.title} (ID: {video.id}) 轉檔失敗: {error_message_from_exception}")
                 return f"影片 {video.title} (ID: {video.id}) 轉檔失敗: {error_message_from_exception}"
@@ -140,7 +177,7 @@ def process_video(video_id):
                 print(f"INFO: FFmpeg stderr (縮圖 {video_id}): {stderr_thumb_bytes.decode('utf8', errors='ignore')[:500]}...")
 
             with open(thumbnail_output_file_path_full, 'rb') as f:
-                 video.thumbnail.save(thumbnail_file_name, File(f), save=False)
+                video.thumbnail.save(thumbnail_file_name, File(f), save=False)
 
             video.processing_status = 'thumbnail_generated'
             print(f"INFO: 影片 {video.title} (ID: {video_id}) 縮圖產生完成: {thumbnail_output_file_path_full}")
@@ -167,7 +204,7 @@ def process_video(video_id):
                 error_message_for_print_and_return = f"NonFFmpegError: {type(e).__name__} - {str(e)}"
 
             final_log_message = f"ERROR: 影片 {video.title} (ID: {video.id}) 縮圖產生失敗: {error_message_for_print_and_return}"
-            print(final_log_message) # Corrected variable name here
+            print(final_log_message)
 
             video.processing_status = 'failed'
             video.save()
@@ -183,7 +220,6 @@ def process_video(video_id):
         return f"錯誤：找不到 ID 為 {video_id} 的影片。"
     except Exception as e:
         error_type_name = type(e).__name__
-        error_message_str = ""
         # 這裡需要特別處理 TestSpecificFFmpegError，因為它在測試中被用來模擬 ffmpeg.Error
         # 並且其 stderr 是一個 MockStderrForTest 實例，需要訪問 _decode_return_value
         print(f"DEBUG_GLOBAL_ERROR: Caught exception in global handler. Type: {type(e).__name__}, Exception: {object.__repr__(e)}")

@@ -8,7 +8,7 @@
 [![HLS](https://img.shields.io/badge/HLS-Streaming-red.svg)](https://developer.apple.com/streaming/)
 [![WebSocket](https://img.shields.io/badge/WebSocket-Real--time-orange.svg)](https://channels.readthedocs.io/)
 
-[中文版](README.md) | [Development Planning Document](https://www.google.com/search?q=.roo/rules/rules.md)
+[中文版](README.md) | [Development Planning Document](.roo/rules/rules.md)
 
 **StreamCraft** is a full-featured video streaming platform built with a modern Django architecture and advanced HLS streaming technology. The project implements complete video upload, processing, streaming, and social interaction functionalities, supporting real-time notifications and high-performance asynchronous processing.
 
@@ -134,7 +134,7 @@ Comments
 ### Frontend Technology
 
 * **Base Technologies**: HTML5, CSS3, JavaScript ES6+
-* **Video Playback**: HLS.js (Modern Browsers) + Native Safari Support
+* **Video Playback**: [HLS.js](https://www.jsdelivr.com/package/npm/hls.js) (Modern Browsers) + Native Safari Support
 * **Real-time Communication**: WebSocket API + Native Notifications
 
 ### Development & Deployment
@@ -367,6 +367,8 @@ ECPAY (No membership required)
 [Sponsor Payment](http://bit.ly/2F7Jrha)
 
 O'Pay (Membership required)
+
+![alt tag](https://i.imgur.com/LRct9xa.png)
 
 [Sponsor Payment](https://payment.opay.tw/Broadcaster/Donate/9E47FDEF85ABE383A0F5FC6A218606F8)
 

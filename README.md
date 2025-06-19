@@ -134,7 +134,7 @@ graph TB
 ### 前端技術
 
 * **基礎技術**: HTML5, CSS3, JavaScript ES6+
-* **影片播放**: HLS.js (現代瀏覽器) + Safari 原生支援
+* **影片播放**: [HLS.js](https://www.jsdelivr.com/package/npm/hls.js) (現代瀏覽器) + Safari 原生支援
 * **實時通訊**: WebSocket API + 原生通知
 
 ### 開發與部署

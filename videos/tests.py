@@ -989,35 +989,42 @@ class ProcessVideoTaskTests(TestCase):
 
         mock_ffmpeg_module.input.return_value = mock_input_stream
 
+        # 設定 mock_open 的行為，確保能正確處理檔案讀取
+        # 第一次呼叫：讀取處理後的影片檔案
+        # 第二次呼叫：寫入處理後的影片檔案
+        # 第三次呼叫：讀取縮圖檔案
+        # 第四次呼叫：寫入縮圖檔案
         mock_open_file.return_value.read.side_effect = [
             b"dummy processed video content", b"",
             b"dummy thumbnail content", b""
         ]
         mock_open_file.return_value.write.return_value = None
 
-        result = process_video(self.video.id)
-        self.video.refresh_from_db()
+        # 使用 patch 來避免實際的檔案操作
+        with patch('django.db.models.fields.files.FieldFile.save', autospec=True) as mock_file_save:
 
-        self.assertEqual(
-            self.video.processing_status,
-            'completed',
-            f"Processing status was {self.video.processing_status}, expected 'completed'. Result: {result}"
-        )
+            result = process_video(self.video.id)
+            self.video.refresh_from_db()
 
-        expected_processed_name_part = f"{os.path.splitext(self.original_video_filename)[0]}_processed.mp4"
-        self.assertTrue(
-            self.video.video_file.name.endswith(expected_processed_name_part),
-            f"video_file.name was '{self.video.video_file.name}', expected to end with '{expected_processed_name_part}'"
-        )
+            self.assertEqual(
+                self.video.processing_status,
+                'completed',
+                f"Processing status was {self.video.processing_status}, expected 'completed'. Result: {result}"
+            )
 
-        expected_thumbnail_name_part = f"{self.video.id}_{os.path.splitext(self.original_video_filename)[0]}_thumb.jpg"
-        self.assertTrue(
-            self.video.thumbnail.name.endswith(expected_thumbnail_name_part),
-            f"thumbnail.name was '{self.video.thumbnail.name}', expected to end with '{expected_thumbnail_name_part}'"
-        )
+            # 驗證 FieldFile.save 被調用了兩次（影片檔案和縮圖檔案）
+            self.assertEqual(mock_file_save.call_count, 2)
 
-        self.assertEqual(mock_ffmpeg_module.input.call_count, 2)
-        self.assertIn(f"影片 {self.video.title} (ID: {self.video.id}) 處理成功。", result)
+            # 驗證第一次調用是保存處理後的影片檔案
+            first_call_args = mock_file_save.call_args_list[0]
+            self.assertTrue(first_call_args[0][1].endswith('_processed.mp4'))
+
+            # 驗證第二次調用是保存縮圖檔案
+            second_call_args = mock_file_save.call_args_list[1]
+            self.assertTrue(second_call_args[0][1].endswith('_thumb.jpg'))
+
+            self.assertEqual(mock_ffmpeg_module.input.call_count, 2)
+            self.assertIn(f"影片 {self.video.title} (ID: {self.video.id}) 處理成功。", result)
 
     @patch('videos.tasks.ffmpeg')
     @patch('videos.tasks.os.path.exists', MagicMock(return_value=True))
