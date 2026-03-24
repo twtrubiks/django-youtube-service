@@ -2,8 +2,8 @@
 
 > Video Streaming Platform - A Modern YouTube Clone Project Based on Django
 
-[![Django](https://img.shields.io/badge/Django-5.2.1-green.svg)](https://www.djangoproject.com/)
-[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-6.0.3-green.svg)](https://www.djangoproject.com/)
+[![Python](https://img.shields.io/badge/Python-3.13+-blue.svg)](https://www.python.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 [![HLS](https://img.shields.io/badge/HLS-Streaming-red.svg)](https://developer.apple.com/streaming/)
 [![WebSocket](https://img.shields.io/badge/WebSocket-Real--time-orange.svg)](https://channels.readthedocs.io/)
@@ -120,14 +120,14 @@ Comments
 
 ### Backend Core
 
-* **Web Framework**: Django 5.2.1 (Python 3.12+)
-* **Asynchronous Processing**: Celery 5.5.3 + Redis
-* **Real-time Communication**: Django Channels 4.2+ (WebSocket)
+* **Web Framework**: Django 6.0.3 (Python 3.13+)
+* **Asynchronous Processing**: Celery 5.6.2 + Redis
+* **Real-time Communication**: Django Channels 4.3.2 (WebSocket)
 * **Application Server**: Daphne (ASGI) + Gunicorn (WSGI)
 
 ### Data Storage
 
-* **Main Database**: PostgreSQL 16 (Production) / SQLite (Development)
+* **Main Database**: PostgreSQL 18 (Production) / SQLite (Development)
 * **Caching System**: Redis (Message Queue + Channel Layer)
 * **File Storage**: Local Storage (extendable to AWS S3/GCS)
 
@@ -142,7 +142,7 @@ Comments
 * **Containerization**: Docker Compose
 * **Video Processing**: FFmpeg (Python wrapper)
 * **Tagging System**: django-taggit 6.1.0
-* **Image Processing**: Pillow 11.2.1
+* **Image Processing**: Pillow 12.1.1
 * **Code Quality**: Ruff (Formatter) + Coverage (Test Coverage)
 
 ## 📊 Performance Metrics
@@ -180,7 +180,7 @@ docker-compose up --build
 
 #### Requirements
 
-* Python 3.12+
+* Python 3.13+
 * Redis Server
 * PostgreSQL (optional, defaults to SQLite)
 * FFmpeg (for video processing)

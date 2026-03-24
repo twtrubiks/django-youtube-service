@@ -2,8 +2,8 @@
 
 > 影片串流平台 - 基於 Django 的現代化 YouTube 克隆專案
 
-[![Django](https://img.shields.io/badge/Django-5.2.1-green.svg)](https://www.djangoproject.com/)
-[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-6.0.3-green.svg)](https://www.djangoproject.com/)
+[![Python](https://img.shields.io/badge/Python-3.13+-blue.svg)](https://www.python.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 [![HLS](https://img.shields.io/badge/HLS-Streaming-red.svg)](https://developer.apple.com/streaming/)
 [![WebSocket](https://img.shields.io/badge/WebSocket-Real--time-orange.svg)](https://channels.readthedocs.io/)
@@ -120,14 +120,14 @@ graph TB
 
 ### 後端核心
 
-* **Web 框架**: Django 5.2.1 (Python 3.12+)
-* **異步處理**: Celery 5.5.3 + Redis
-* **實時通訊**: Django Channels 4.2+ (WebSocket)
+* **Web 框架**: Django 6.0.3 (Python 3.13+)
+* **異步處理**: Celery 5.6.2 + Redis
+* **實時通訊**: Django Channels 4.3.2 (WebSocket)
 * **應用伺服器**: Daphne (ASGI) + Gunicorn (WSGI)
 
 ### 數據存儲
 
-* **主資料庫**: PostgreSQL 16 (生產環境) / SQLite (開發)
+* **主資料庫**: PostgreSQL 18 (生產環境) / SQLite (開發)
 * **緩存系統**: Redis (消息佇列 + 頻道層)
 * **文件存儲**: 本地存儲 (可擴展至 AWS S3/GCS)
 
@@ -142,7 +142,7 @@ graph TB
 * **容器化**:Docker Compose
 * **影片處理**: FFmpeg (Python wrapper)
 * **標籤系統**: django-taggit 6.1.0
-* **圖像處理**: Pillow 11.2.1
+* **圖像處理**: Pillow 12.1.1
 * **代碼品質**: Ruff (格式化) + Coverage (測試覆蓋率)
 
 ## 📊 性能指標
@@ -180,11 +180,11 @@ docker-compose up --build
 
 #### 環境要求
 
-Python 3.12+
+Python 3.13+
 
 Redis Server
 
-PostgreSQL (可選，預設使用 SQLite)
+PostgreSQL 18 (可選，預設使用 SQLite)
 
 FFmpeg (影片處理)
 
