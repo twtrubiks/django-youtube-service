@@ -4,15 +4,27 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('videos', '0002_category_video_tags_video_category'),
+        ("videos", "0002_category_video_tags_video_category"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='video',
-            name='processing_status',
-            field=models.CharField(blank=True, choices=[('pending', 'Pending'), ('processing', 'Processing'), ('transcoding_complete', 'Transcoding Complete'), ('thumbnail_generated', 'Thumbnail Generated'), ('completed', 'Completed'), ('failed', 'Failed')], default='pending', max_length=20, null=True),
+            model_name="video",
+            name="processing_status",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("pending", "Pending"),
+                    ("processing", "Processing"),
+                    ("transcoding_complete", "Transcoding Complete"),
+                    ("thumbnail_generated", "Thumbnail Generated"),
+                    ("completed", "Completed"),
+                    ("failed", "Failed"),
+                ],
+                default="pending",
+                max_length=20,
+                null=True,
+            ),
         ),
     ]

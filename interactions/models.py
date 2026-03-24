@@ -8,110 +8,74 @@ class Comment(models.Model):
     """
     評論模型，支援巢狀回覆功能。
     """
-    video = models.ForeignKey(
-        'videos.Video',
-        on_delete=models.CASCADE,
-        related_name='comments'
-    )
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='comments'
-    )
-    parent_comment = models.ForeignKey(
-        'self',
-        null=True,
-        blank=True,
-        on_delete=models.CASCADE,
-        related_name='replies'
-    )
+
+    video = models.ForeignKey("videos.Video", on_delete=models.CASCADE, related_name="comments")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="comments")
+    parent_comment = models.ForeignKey("self", null=True, blank=True, on_delete=models.CASCADE, related_name="replies")
     content = models.TextField()
     timestamp = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         if self.parent_comment:
-            return (f'Reply by {self.user.username} to '
-                   f'{self.parent_comment.user.username} on {self.video.title}')
-        return f'Comment by {self.user.username} on {self.video.title}'
+            return f"Reply by {self.user.username} to {self.parent_comment.user.username} on {self.video.title}"
+        return f"Comment by {self.user.username} on {self.video.title}"
+
 
 class LikeDislike(models.Model):
     """
     讚/踩模型，記錄使用者對影片的評價。
     """
-    LIKE = 'like'
-    DISLIKE = 'dislike'
+
+    LIKE = "like"
+    DISLIKE = "dislike"
     VOTE_CHOICES = [
-        (LIKE, 'Like'),
-        (DISLIKE, 'Dislike'),
+        (LIKE, "Like"),
+        (DISLIKE, "Dislike"),
     ]
 
-    video = models.ForeignKey(
-        'videos.Video',
-        on_delete=models.CASCADE,
-        related_name='likes_dislikes'
-    )
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='likes_dislikes'
-    )
+    video = models.ForeignKey("videos.Video", on_delete=models.CASCADE, related_name="likes_dislikes")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="likes_dislikes")
     type = models.CharField(max_length=7, choices=VOTE_CHOICES)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=['video', 'user'], name='unique_likedislike_per_video_user')
-        ]
-        ordering = ['-timestamp']
+        constraints = [models.UniqueConstraint(fields=["video", "user"], name="unique_likedislike_per_video_user")]
+        ordering = ["-timestamp"]
 
     def __str__(self):
-        return f'{self.user.username} {self.type}s {self.video.title}'
+        return f"{self.user.username} {self.type}s {self.video.title}"
+
 
 class Subscription(models.Model):
     """
     訂閱模型，記錄使用者之間的訂閱關係。
     """
+
     # The user who is subscribing
-    subscriber = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='subscriptions'
-    )
+    subscriber = models.ForeignKey(User, on_delete=models.CASCADE, related_name="subscriptions")
     # The user (channel owner) being subscribed to
-    subscribed_to = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='subscribers'
-    )
+    subscribed_to = models.ForeignKey(User, on_delete=models.CASCADE, related_name="subscribers")
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['subscriber', 'subscribed_to'], name='unique_subscription_per_user_pair')
+            models.UniqueConstraint(fields=["subscriber", "subscribed_to"], name="unique_subscription_per_user_pair")
         ]
-        ordering = ['-timestamp']
+        ordering = ["-timestamp"]
 
     def __str__(self):
-        return f'{self.subscriber.username} subscribes to {self.subscribed_to.username}'
+        return f"{self.subscriber.username} subscribes to {self.subscribed_to.username}"
+
 
 class Notification(models.Model):
     """
     通知模型，記錄系統發送給使用者的通知。
     """
-    recipient = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='notifications'
-    )
+
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
     # Add a sender field. It can be null if the notification is system-generated
     # or doesn't have a specific sender.
-    sender = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='sent_notifications',
-        null=True,
-        blank=True
-    )
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sent_notifications", null=True, blank=True)
     message = models.TextField()
     # Optional link to content
     link = models.URLField(max_length=200, blank=True, null=True)
@@ -133,7 +97,7 @@ class Notification(models.Model):
     # )
 
     class Meta:
-        ordering = ['-timestamp']
+        ordering = ["-timestamp"]
 
     def __str__(self):
-        return f'Notification for {self.recipient.username}: {self.message[:50]}'
+        return f"Notification for {self.recipient.username}: {self.message[:50]}"

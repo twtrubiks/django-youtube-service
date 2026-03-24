@@ -5,28 +5,29 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('interactions', '0006_notification_sender'),
-        ('videos', '0004_video_hls_path'),
+        ("interactions", "0006_notification_sender"),
+        ("videos", "0004_video_hls_path"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AlterUniqueTogether(
-            name='likedislike',
+            name="likedislike",
             unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
-            name='subscription',
+            name="subscription",
             unique_together=set(),
         ),
         migrations.AddConstraint(
-            model_name='likedislike',
-            constraint=models.UniqueConstraint(fields=('video', 'user'), name='unique_likedislike_per_video_user'),
+            model_name="likedislike",
+            constraint=models.UniqueConstraint(fields=("video", "user"), name="unique_likedislike_per_video_user"),
         ),
         migrations.AddConstraint(
-            model_name='subscription',
-            constraint=models.UniqueConstraint(fields=('subscriber', 'subscribed_to'), name='unique_subscription_per_user_pair'),
+            model_name="subscription",
+            constraint=models.UniqueConstraint(
+                fields=("subscriber", "subscribed_to"), name="unique_subscription_per_user_pair"
+            ),
         ),
     ]

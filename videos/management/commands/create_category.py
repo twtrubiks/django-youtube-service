@@ -1,8 +1,10 @@
 from django.core.management.base import BaseCommand
+
 from videos.models import Category
 
+
 class Command(BaseCommand):
-    help = 'Creates category if it does not exist.'
+    help = "Creates category if it does not exist."
 
     # python3 manage.py create_category
 
@@ -22,10 +24,9 @@ class Command(BaseCommand):
             {"name": "電影與動畫", "slug": "film-and-animation"},
             {"name": "寵物與動物", "slug": "pets-and-animals"},
             {"name": "體育", "slug": "sports"},
-            {"name": "DIY 教學與生活風格", "slug": "diy-howto-and-style"}
+            {"name": "DIY 教學與生活風格", "slug": "diy-howto-and-style"},
         ]
 
         for category in categories:
-            category_obj, created = \
-                Category.objects.get_or_create(name=category['name'], slug=category['slug'])
+            category_obj, created = Category.objects.get_or_create(name=category["name"], slug=category["slug"])
             self.stdout.write(self.style.SUCCESS(f'Successfully created category "{category_obj.name}"'))

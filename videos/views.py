@@ -6,19 +6,21 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.http import HttpResponse, Http404
-from django.shortcuts import render, redirect, get_object_or_404
+from django.http import Http404, HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 # 第三方庫 imports
 from taggit.models import Tag
 
-# 本地應用 imports
-from .forms import VideoUploadForm, CategoryForm
-from .models import Video, Category
-from .tasks import process_video
 from interactions.forms import CommentForm
 from interactions.models import Comment, LikeDislike
+
+# 本地應用 imports
+from .forms import CategoryForm, VideoUploadForm
+from .models import Category, Video
+from .tasks import process_video
+
 
 @login_required
 def upload_video(request):
@@ -31,7 +33,7 @@ def upload_video(request):
     Returns:
         HttpResponse: 渲染的模板回應或重定向
     """
-    if request.method == 'POST':
+    if request.method == "POST":
         form = VideoUploadForm(request.POST, request.FILES)
         if form.is_valid():
             video = form.save(commit=False)
@@ -41,10 +43,11 @@ def upload_video(request):
             # 觸發 Celery 任務來處理影片
             process_video.delay(video.id)
             # Redirect to the video detail page or a success page
-            return redirect(reverse('videos:video_detail', args=[video.id]))
+            return redirect(reverse("videos:video_detail", args=[video.id]))
     else:
         form = VideoUploadForm()
-    return render(request, 'videos/upload_video.html', {'form': form})
+    return render(request, "videos/upload_video.html", {"form": form})
+
 
 def video_detail(request, video_id):
     """
@@ -58,23 +61,19 @@ def video_detail(request, video_id):
         HttpResponse: 渲染的影片詳細頁面
     """
     video = get_object_or_404(Video, pk=video_id)
-    comments = Comment.objects.filter(video=video).order_by('-timestamp')
+    comments = Comment.objects.filter(video=video).order_by("-timestamp")
     comment_form = CommentForm()
 
     # Increment view count if not already viewed in this session
-    viewed_video_session_key = f'viewed_video_{video.id}'
+    viewed_video_session_key = f"viewed_video_{video.id}"
     if not request.session.get(viewed_video_session_key, False):
         video.views_count += 1
-        video.save(update_fields=['views_count'])
+        video.save(update_fields=["views_count"])
         request.session[viewed_video_session_key] = True
 
     # Get like/dislike counts
-    likes_count = LikeDislike.objects.filter(
-        video=video, type=LikeDislike.LIKE
-    ).count()
-    dislikes_count = LikeDislike.objects.filter(
-        video=video, type=LikeDislike.DISLIKE
-    ).count()
+    likes_count = LikeDislike.objects.filter(video=video, type=LikeDislike.LIKE).count()
+    dislikes_count = LikeDislike.objects.filter(video=video, type=LikeDislike.DISLIKE).count()
 
     # Get current user's vote
     user_vote = None
@@ -86,16 +85,17 @@ def video_detail(request, video_id):
             pass  # User hasn't voted
 
     context = {
-        'video': video,
-        'comments': comments,
-        'comment_form': comment_form,
-        'likes_count': likes_count,
-        'dislikes_count': dislikes_count,
-        'user_vote': user_vote,  # 'like', 'dislike', or None
-        'category': video.category,
-        'tags': video.tags.all(),
+        "video": video,
+        "comments": comments,
+        "comment_form": comment_form,
+        "likes_count": likes_count,
+        "dislikes_count": dislikes_count,
+        "user_vote": user_vote,  # 'like', 'dislike', or None
+        "category": video.category,
+        "tags": video.tags.all(),
     }
-    return render(request, 'videos/video_detail.html', context)
+    return render(request, "videos/video_detail.html", context)
+
 
 def home(request):
     """
@@ -107,8 +107,8 @@ def home(request):
     Returns:
         HttpResponse: 渲染的首頁
     """
-    videos = Video.objects.filter(visibility='public').order_by('-upload_date')
-    return render(request, 'videos/home.html', {'videos': videos})
+    videos = Video.objects.filter(visibility="public").order_by("-upload_date")
+    return render(request, "videos/home.html", {"videos": videos})
 
 
 def search_videos(request):
@@ -121,18 +121,15 @@ def search_videos(request):
     Returns:
         HttpResponse: 渲染的搜尋結果頁面
     """
-    query = request.GET.get('query')
+    query = request.GET.get("query")
     videos = []
     if query:
         videos = Video.objects.filter(
-            Q(title__icontains=query) | Q(description__icontains=query),
-            visibility='public'
-        ).order_by('-upload_date')
+            Q(title__icontains=query) | Q(description__icontains=query), visibility="public"
+        ).order_by("-upload_date")
 
-    return render(request, 'videos/search_results.html', {
-        'videos': videos,
-        'query': query
-    })
+    return render(request, "videos/search_results.html", {"videos": videos, "query": query})
+
 
 @login_required
 def edit_video(request, video_id):
@@ -140,51 +137,54 @@ def edit_video(request, video_id):
 
     if video.uploader != request.user:
         messages.error(request, "You are not authorized to edit this video.")
-        return redirect(reverse('videos:video_detail', args=[video.id]))
+        return redirect(reverse("videos:video_detail", args=[video.id]))
 
-    if request.method == 'POST':
+    if request.method == "POST":
         form = VideoUploadForm(request.POST, request.FILES, instance=video)
         if form.is_valid():
             form.save()
             messages.success(request, "Video updated successfully.")
-            return redirect(reverse('videos:video_detail', args=[video.id]))
+            return redirect(reverse("videos:video_detail", args=[video.id]))
         else:
             messages.error(request, "Error updating video. Please check the form.")
     else:
         form = VideoUploadForm(instance=video)
 
-    return render(request, 'videos/edit_video.html', {'form': form, 'video': video})
+    return render(request, "videos/edit_video.html", {"form": form, "video": video})
+
 
 def videos_by_category(request, category_slug):
     category = get_object_or_404(Category, slug=category_slug)
-    videos = Video.objects.filter(category=category, visibility='public').order_by('-upload_date')
+    videos = Video.objects.filter(category=category, visibility="public").order_by("-upload_date")
     context = {
-        'category': category,
-        'videos': videos,
+        "category": category,
+        "videos": videos,
     }
-    return render(request, 'videos/videos_by_category.html', context)
+    return render(request, "videos/videos_by_category.html", context)
+
 
 def videos_by_tag(request, tag_slug):
     tag = get_object_or_404(Tag, slug=tag_slug)
-    videos = Video.objects.filter(tags__slug=tag_slug, visibility='public').order_by('-upload_date')
+    videos = Video.objects.filter(tags__slug=tag_slug, visibility="public").order_by("-upload_date")
     context = {
-        'tag': tag,
-        'videos': videos,
+        "tag": tag,
+        "videos": videos,
     }
-    return render(request, 'videos/videos_by_tag.html', context)
+    return render(request, "videos/videos_by_tag.html", context)
+
 
 @login_required
 def add_category(request):
     # Get 'next' from GET param for initial load or if it's in POST URL query string
-    next_val_from_get = request.GET.get('next')
+    next_val_from_get = request.GET.get("next")
 
-    if request.method == 'POST':
+    if request.method == "POST":
         form = CategoryForm(request.POST)
-        next_val_from_post_hidden_field = request.POST.get('next')
+        next_val_from_post_hidden_field = request.POST.get("next")
 
         if form.is_valid():
             form.save()
-            messages.success(request, 'Category added successfully!')
+            messages.success(request, "Category added successfully!")
             # Prioritize 'next' from the hidden field for redirect
             if next_val_from_post_hidden_field and next_val_from_post_hidden_field.strip():
                 return redirect(next_val_from_post_hidden_field)
@@ -192,26 +192,24 @@ def add_category(request):
             elif next_val_from_get and next_val_from_get.strip():
                 return redirect(next_val_from_get)
             else:
-                return redirect(reverse('videos:upload_video')) # Ultimate fallback
-        else: # Form is invalid
-            messages.error(request, 'Error adding category. Please check the form.')
+                return redirect(reverse("videos:upload_video"))  # Ultimate fallback
+        else:  # Form is invalid
+            messages.error(request, "Error adding category. Please check the form.")
             # For re-rendering, use the 'next' value that was intended for this submission attempt
             # This would be from the hidden field, or if that's missing, from the GET param.
             context_next_url = next_val_from_post_hidden_field or next_val_from_get
-            context = {
-                'form': form,
-                'next_target_url_for_template': context_next_url
-            }
-            return render(request, 'videos/add_category.html', context)
-    else: # GET request
+            context = {"form": form, "next_target_url_for_template": context_next_url}
+            return render(request, "videos/add_category.html", context)
+    else:  # GET request
         form = CategoryForm()
-        categories = Category.objects.all().order_by('name') # 獲取所有分類
+        categories = Category.objects.all().order_by("name")  # 獲取所有分類
         context = {
-            'form': form,
-            'next_target_url_for_template': next_val_from_get, # Use 'next' from GET for initial form
-            'categories': categories # 將分類列表添加到上下文中
+            "form": form,
+            "next_target_url_for_template": next_val_from_get,  # Use 'next' from GET for initial form
+            "categories": categories,  # 將分類列表添加到上下文中
         }
-        return render(request, 'videos/add_category.html', context)
+        return render(request, "videos/add_category.html", context)
+
 
 @login_required
 def delete_category(request, category_id):
@@ -219,24 +217,25 @@ def delete_category(request, category_id):
     # 權限檢查：只有具備 staff 權限的使用者才能刪除分類
     if not request.user.is_staff:
         messages.error(request, "您沒有權限刪除此分類。")
-        return redirect(reverse('videos:add_category')) # 重定向到添加分類頁面
+        return redirect(reverse("videos:add_category"))  # 重定向到添加分類頁面
 
-    if request.method == 'POST':
+    if request.method == "POST":
         category_name = category.name
         # 檢查是否有影片關聯到此分類
         if category.videos.exists():
             messages.error(request, f'無法刪除分類 "{category_name}"，因為它有關聯的影片。請先重新分配或刪除這些影片。')
             # 重定向回來源頁面或分類列表頁
             # 為了簡單起見，我們先重定向到 add_category，理想情況下應該有更好的處理
-            return redirect(reverse('videos:add_category'))
+            return redirect(reverse("videos:add_category"))
 
         category.delete()
         messages.success(request, f'Category "{category_name}" deleted successfully.')
         # 重定向到一個合適的頁面，例如分類列表頁或首頁
-        return redirect(reverse('videos:home')) # 成功刪除後重定向到首頁
+        return redirect(reverse("videos:home"))  # 成功刪除後重定向到首頁
 
     # 如果不是 POST 請求，則顯示確認刪除頁面
-    return render(request, 'videos/confirm_delete_category.html', {'category': category})
+    return render(request, "videos/confirm_delete_category.html", {"category": category})
+
 
 @login_required
 def delete_video(request, video_id):
@@ -244,16 +243,16 @@ def delete_video(request, video_id):
 
     if video.uploader != request.user:
         messages.error(request, "您沒有權限刪除此影片。")
-        return redirect(reverse('videos:video_detail', args=[video.id]))
+        return redirect(reverse("videos:video_detail", args=[video.id]))
 
-    if request.method == 'POST':
+    if request.method == "POST":
         video_path = os.path.join(settings.MEDIA_ROOT, str(video.video_file))
         thumbnail_path = None
         if video.thumbnail:
             thumbnail_path = os.path.join(settings.MEDIA_ROOT, str(video.thumbnail))
 
         video_title = video.title
-        video.delete() # Delete the video record from the database
+        video.delete()  # Delete the video record from the database
 
         # Attempt to delete the video file
         try:
@@ -275,12 +274,12 @@ def delete_video(request, video_id):
         # Assuming you have a 'channel' view in your 'users' app
         # If not, redirect to 'videos:home'
         try:
-            return redirect(reverse('users:channel', args=[request.user.username]))
-        except: # noqa
-            return redirect(reverse('videos:home'))
+            return redirect(reverse("users:channel", args=[request.user.username]))
+        except:  # noqa
+            return redirect(reverse("videos:home"))
 
     # If GET request, show confirmation page
-    return render(request, 'videos/confirm_delete_video.html', {'video': video})
+    return render(request, "videos/confirm_delete_video.html", {"video": video})
 
 
 def serve_hls_playlist(request, video_id):
@@ -290,7 +289,7 @@ def serve_hls_playlist(request, video_id):
     video = get_object_or_404(Video, pk=video_id)
 
     # 檢查影片可見性
-    if video.visibility == 'private' and video.uploader != request.user:
+    if video.visibility == "private" and video.uploader != request.user:
         raise Http404("影片不存在或無權限訪問")
 
     # 檢查 HLS 文件是否存在
@@ -303,14 +302,14 @@ def serve_hls_playlist(request, video_id):
         raise Http404("HLS 播放清單文件不存在")
 
     try:
-        with open(playlist_path, 'r', encoding='utf-8') as f:
+        with open(playlist_path, encoding="utf-8") as f:
             content = f.read()
 
-        response = HttpResponse(content, content_type='application/vnd.apple.mpegurl')
-        response['Cache-Control'] = 'no-cache'
+        response = HttpResponse(content, content_type="application/vnd.apple.mpegurl")
+        response["Cache-Control"] = "no-cache"
         return response
     except Exception as e:
-        raise Http404(f"讀取 HLS 播放清單失敗: {str(e)}")
+        raise Http404(f"讀取 HLS 播放清單失敗: {str(e)}") from e
 
 
 def serve_hls_segment(request, video_id, segment_name):
@@ -320,7 +319,7 @@ def serve_hls_segment(request, video_id, segment_name):
     video = get_object_or_404(Video, pk=video_id)
 
     # 檢查影片可見性
-    if video.visibility == 'private' and video.uploader != request.user:
+    if video.visibility == "private" and video.uploader != request.user:
         raise Http404("影片不存在或無權限訪問")
 
     # 檢查 HLS 文件是否存在
@@ -339,11 +338,11 @@ def serve_hls_segment(request, video_id, segment_name):
         raise Http404("HLS 片段文件不存在")
 
     try:
-        with open(segment_path, 'rb') as f:
+        with open(segment_path, "rb") as f:
             content = f.read()
 
-        response = HttpResponse(content, content_type='video/mp2t')
-        response['Cache-Control'] = 'public, max-age=3600'  # 片段可以緩存
+        response = HttpResponse(content, content_type="video/mp2t")
+        response["Cache-Control"] = "public, max-age=3600"  # 片段可以緩存
         return response
     except Exception as e:
-        raise Http404(f"讀取 HLS 片段失敗: {str(e)}")
+        raise Http404(f"讀取 HLS 片段失敗: {str(e)}") from e

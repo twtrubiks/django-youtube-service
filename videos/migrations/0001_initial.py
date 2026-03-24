@@ -7,7 +7,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -16,17 +15,29 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Video',
+            name="Video",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=255)),
-                ('description', models.TextField(blank=True)),
-                ('video_file', models.FileField(upload_to='videos/')),
-                ('thumbnail', models.ImageField(blank=True, null=True, upload_to='thumbnails/')),
-                ('upload_date', models.DateTimeField(default=django.utils.timezone.now)),
-                ('views_count', models.IntegerField(default=0)),
-                ('visibility', models.CharField(choices=[('public', 'Public'), ('private', 'Private'), ('unlisted', 'Unlisted')], default='public', max_length=10)),
-                ('uploader', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='videos', to=settings.AUTH_USER_MODEL)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("title", models.CharField(max_length=255)),
+                ("description", models.TextField(blank=True)),
+                ("video_file", models.FileField(upload_to="videos/")),
+                ("thumbnail", models.ImageField(blank=True, null=True, upload_to="thumbnails/")),
+                ("upload_date", models.DateTimeField(default=django.utils.timezone.now)),
+                ("views_count", models.IntegerField(default=0)),
+                (
+                    "visibility",
+                    models.CharField(
+                        choices=[("public", "Public"), ("private", "Private"), ("unlisted", "Unlisted")],
+                        default="public",
+                        max_length=10,
+                    ),
+                ),
+                (
+                    "uploader",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, related_name="videos", to=settings.AUTH_USER_MODEL
+                    ),
+                ),
             ],
         ),
     ]

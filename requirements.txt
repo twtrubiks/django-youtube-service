@@ -9,3 +9,4 @@ pytz
 coverage
 psycopg2-binary==2.9.11
 ruff # for format
+pre-commit
