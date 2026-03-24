@@ -123,3 +123,9 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# pyenv
+.python-version
+
+# Media files
+media/
