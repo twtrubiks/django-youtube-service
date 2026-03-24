@@ -59,7 +59,9 @@ class LikeDislike(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('video', 'user')  # A user can only vote once per video
+        constraints = [
+            models.UniqueConstraint(fields=['video', 'user'], name='unique_likedislike_per_video_user')
+        ]
         ordering = ['-timestamp']
 
     def __str__(self):
@@ -84,8 +86,9 @@ class Subscription(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # A user can only subscribe once to another user
-        unique_together = ('subscriber', 'subscribed_to')
+        constraints = [
+            models.UniqueConstraint(fields=['subscriber', 'subscribed_to'], name='unique_subscription_per_user_pair')
+        ]
         ordering = ['-timestamp']
 
     def __str__(self):
