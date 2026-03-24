@@ -9,7 +9,7 @@ services:
 
     redis-django:
       container_name: redis
-      image: redis
+      image: redis:8-alpine
       restart: always
       # ports:
       #   - "6379:6379"
@@ -43,7 +43,7 @@ services:
           condition: service_healthy
 
     django-postgres:
-      image: postgres:16
+      image: postgres:18
       # ports:
       #   - "5432:5432"
       environment:
