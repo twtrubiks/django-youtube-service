@@ -580,7 +580,7 @@ class GetNotificationsViewTests(TestCase):
         response = self.client.get(reverse("interactions:get_notifications"))
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
-        self.assertEqual(data["notifications"], [])
+        self.assertEqual(data["data"]["notifications"], [])
 
     def test_get_notifications_with_data(self):
         Notification.objects.create(recipient=self.user, message="Test notification", link="/test/")
@@ -588,15 +588,15 @@ class GetNotificationsViewTests(TestCase):
         response = self.client.get(reverse("interactions:get_notifications"))
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
-        self.assertEqual(len(data["notifications"]), 2)
-        self.assertEqual(data["notifications"][0]["message"], "Another notification")
+        self.assertEqual(len(data["data"]["notifications"]), 2)
+        self.assertEqual(data["data"]["notifications"][0]["message"], "Another notification")
 
     def test_get_notifications_only_own(self):
         Notification.objects.create(recipient=self.user, message="My notification")
         Notification.objects.create(recipient=self.other_user, message="Not mine")
         response = self.client.get(reverse("interactions:get_notifications"))
         data = json.loads(response.content)
-        self.assertEqual(len(data["notifications"]), 1)
+        self.assertEqual(len(data["data"]["notifications"]), 1)
 
     def test_get_notifications_requires_login(self):
         self.client.logout()

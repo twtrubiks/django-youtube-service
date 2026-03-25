@@ -212,7 +212,7 @@ def get_notifications(request):
             }
         )
 
-    return JsonResponse({"notifications": data})
+    return JsonResponse({"status": "success", "data": {"notifications": data}})
 
 
 @login_required
