@@ -75,9 +75,8 @@ def video_detail(request, video_id):
         video.refresh_from_db(fields=["views_count"])
         request.session[viewed_video_session_key] = True
 
-    # Get like/dislike counts
-    likes_count = LikeDislike.objects.filter(video=video, type=LikeDislike.LIKE).count()
-    dislikes_count = LikeDislike.objects.filter(video=video, type=LikeDislike.DISLIKE).count()
+    likes_count = video.likes_count()
+    dislikes_count = video.dislikes_count()
 
     # Get current user's vote
     user_vote = None
