@@ -104,6 +104,23 @@
         {% endblock %}
     </div>
 
+    <div id="toast-container" style="position:fixed;top:16px;right:16px;z-index:10000;display:flex;flex-direction:column;gap:8px;"></div>
+    <script>
+    function showToast(message, type) {
+        type = type || 'error';
+        var container = document.getElementById('toast-container');
+        var toast = document.createElement('div');
+        toast.style.cssText = 'padding:12px 20px;border-radius:8px;color:#fff;font-size:14px;max-width:360px;box-shadow:0 4px 12px rgba(0,0,0,0.15);opacity:0;transition:opacity 0.3s;';
+        toast.style.backgroundColor = type === 'error' ? 'var(--error, #e53935)' : 'var(--primary, #065fd4)';
+        toast.textContent = message;
+        container.appendChild(toast);
+        requestAnimationFrame(function() { toast.style.opacity = '1'; });
+        setTimeout(function() {
+            toast.style.opacity = '0';
+            setTimeout(function() { toast.remove(); }, 300);
+        }, 4000);
+    }
+    </script>
     <script src="{% static 'js/notifications.js' %}"></script>
     {% if user.is_authenticated %}
     {{ user.id|json_script:"current-user-id" }}

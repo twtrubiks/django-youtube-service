@@ -92,12 +92,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         subscribeButton.classList.remove('button-secondary');
                     }
                 } else {
-                    alert('Error: ' + data.message);
+                    showToast('Error: ' + data.message);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('An unexpected error occurred.');
+                showToast('An unexpected error occurred.');
             });
         });
     }

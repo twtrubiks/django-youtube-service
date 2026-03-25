@@ -227,7 +227,7 @@
 
                 if (!commentContent) {
                     if (commentFormErrors && !isReply) commentFormErrors.innerHTML = '<p>Comment cannot be empty.</p>';
-                    if (isReply) alert('Reply cannot be empty.');
+                    if (isReply) showToast('Reply cannot be empty.');
                     return;
                 }
 
@@ -292,14 +292,14 @@
                             }
                             commentFormErrors.innerHTML = errorMessages;
                         } else if (isReply) {
-                            alert('Error posting reply: ' + (data.message || JSON.stringify(data.errors)));
+                            showToast('Error posting reply: ' + (data.message || JSON.stringify(data.errors)));
                         }
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     if (commentFormErrors && !isReply) commentFormErrors.innerHTML = '<p>An unexpected error occurred. Please try again.</p>';
-                    if (isReply) alert('An unexpected error occurred with your reply.');
+                    if (isReply) showToast('An unexpected error occurred with your reply.');
                 });
             });
         }
@@ -354,12 +354,12 @@
                                 dislikeButton.classList.add('active-danger');
                             }
                         } else {
-                            alert('Error: ' + data.message);
+                            showToast('Error: ' + data.message);
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert('An unexpected error occurred.');
+                        showToast('An unexpected error occurred.');
                     });
                 });
             }

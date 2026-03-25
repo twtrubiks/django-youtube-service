@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!tag) return;
 
             if (!englishNumericRegex.test(tag)) {
-                alert('Tags can only contain English letters and numbers.');
+                showToast('Tags can only contain English letters and numbers.');
                 return;
             }
 
