@@ -18,14 +18,27 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.db import connection
+from django.http import JsonResponse
 from django.urls import include, path
 
+
+def health_check(request):
+    status = {"status": "ok"}
+    try:
+        connection.ensure_connection()
+    except Exception:
+        status["db"] = "unavailable"
+        status["status"] = "degraded"
+    return JsonResponse(status)
+
+
 urlpatterns = [
+    path("health/", health_check, name="health_check"),
     path("admin/", admin.site.urls),
     path("users/", include("users.urls", namespace="users")),
     path("videos/", include("videos.urls", namespace="videos")),
     path("interactions/", include("interactions.urls", namespace="interactions")),
-    # Add other app urls here
 ]
 
 if settings.DEBUG:
