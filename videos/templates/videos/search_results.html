@@ -15,7 +15,7 @@
                     {% if video.thumbnail %}
                         <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail">
                     {% else %}
-                        <div style="width:100%; aspect-ratio: 16/9; background-color: #eee; display:flex; align-items:center; justify-content:center; color:#666;">No Thumbnail</div>
+                        <div class="video-thumbnail-placeholder">No Thumbnail</div>
                     {% endif %}
                 </div>
             </a>
@@ -29,13 +29,12 @@
                 <div class="video-views">
                     {{ video.views_count }} views &bull; {{ video.upload_date|timesince }} ago
                 </div>
-                {# <p class="video-description-snippet">{{ video.description|truncatewords:15 }}</p> #} {# Optional: Add a short description snippet if desired #}
             </div>
         </div>
         {% endfor %}
     </div>
     {% else %}
-        <p>No videos found matching your query "{{ query }}".</p>
+        <p style="color: var(--text-secondary); text-align: center; padding: 48px 0;">No videos found matching your query "{{ query }}".</p>
     {% endif %}
 </div>
 {% endblock %}

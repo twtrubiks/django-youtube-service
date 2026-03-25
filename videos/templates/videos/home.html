@@ -1,17 +1,9 @@
 {% extends "users/base.html" %}
 
-{% block title %}Home - MyTube{% endblock %}
-
-{% block head_extra %}
-{# This block can be used to add extra head elements on a per-page basis #}
-{# We removed the inline styles from here, but the block itself should remain #}
-{% endblock %}
+{% block title %}Home - StreamCraft{% endblock %}
 
 {% block content %}
 <div class="container">
-
-    {# Removed featured video section for simplicity with new CSS, can be re-added with new styling later if needed #}
-
     <h2 class="section-title">Latest Videos</h2>
     {% if videos %}
     <div class="video-grid">
@@ -22,7 +14,7 @@
                     {% if video.thumbnail %}
                         <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail">
                     {% else %}
-                        <div style="width:100%; aspect-ratio: 16/9; background-color: #eee; display:flex; align-items:center; justify-content:center; color:#666;">No Thumbnail</div>
+                        <div class="video-thumbnail-placeholder">No Thumbnail</div>
                     {% endif %}
                 </div>
             </a>
@@ -41,9 +33,7 @@
         {% endfor %}
     </div>
     {% else %}
-        <div class="col">
-            <p>No videos found. Upload some to get started!</p>
-        </div>
+        <p style="color: var(--text-secondary); text-align: center; padding: 48px 0;">No videos found. Upload some to get started!</p>
     {% endif %}
 </div>
 {% endblock %}

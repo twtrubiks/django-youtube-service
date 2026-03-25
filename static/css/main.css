@@ -1,30 +1,102 @@
-/* Global styles for YouTube clone */
+/* ============================================
+   StreamCraft - YouTube-style Light Theme
+   Design System:
+     Background:  #f9f9f9  (YouTube light bg)
+     Surface:     #ffffff  (white cards)
+     Surface-2:   #f2f2f2  (hover/secondary)
+     Border:      #e5e5e5
+     Primary:     #ff0000  (YouTube red)
+     Accent:      #065fd4  (YouTube blue)
+     Text:        #0f0f0f
+     Text-muted:  #606060
+     Font:        'Poppins', sans-serif
+   ============================================ */
+
+/* --- CSS Variables --- */
+:root {
+    --bg: #f9f9f9;
+    --surface: #ffffff;
+    --surface-2: #f2f2f2;
+    --surface-hover: #e8e8e8;
+    --border: #e5e5e5;
+    --border-light: #d9d9d9;
+    --primary: #ff0000;
+    --primary-hover: #cc0000;
+    --accent: #065fd4;
+    --accent-hover: #0450b5;
+    --text: #0f0f0f;
+    --text-secondary: #606060;
+    --text-muted: #909090;
+    --success: #2ba640;
+    --success-bg: #e6f4ea;
+    --error: #d93025;
+    --error-bg: #fce8e6;
+    --info-bg: #e8f0fe;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-xs: 4px;
+    --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+    --transition: 200ms ease;
+}
+
+/* --- Reset & Global --- */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
 body {
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Poppins', sans-serif;
     margin: 0;
-    background-color: #f9f9f9; /* YouTube's light background */
-    color: #0f0f0f; /* YouTube's primary text color */
+    background-color: var(--bg);
+    color: var(--text);
     font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 a {
     text-decoration: none;
-    color: #065fd4; /* YouTube's link color */
+    color: var(--accent);
+    transition: color var(--transition);
 }
 
 a:hover {
-    text-decoration: underline;
+    color: var(--accent-hover);
+    text-decoration: none;
 }
 
-/* Header / Navigation Bar */
+::selection {
+    background-color: var(--primary);
+    color: #fff;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--surface-2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--surface-hover);
+}
+
+/* --- Header / Navigation Bar --- */
 header {
-    background-color: #ffffff;
-    padding: 0 16px; /* YouTube's typical padding */
-    height: 56px;
+    background-color: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 0 24px;
+    height: 64px;
     display: flex;
     align-items: center;
-    /* justify-content: space-between; Will be handled by flex properties of children */
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
     z-index: 1000;
@@ -32,12 +104,13 @@ header {
 
 /* Logo */
 header h1 {
-    font-size: 20px;
-    font-weight: 500;
-    color: #030303;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
     margin: 0;
-    margin-right: 40px; /* Space between logo and search */
     flex-shrink: 0;
+    letter-spacing: -0.5px;
+    width: 200px;
 }
 
 header h1 a {
@@ -45,85 +118,85 @@ header h1 a {
     text-decoration: none;
     display: flex;
     align-items: center;
+    gap: 8px;
 }
 
-/* Search Form - Centered */
+header h1 .logo-icon {
+    color: var(--primary);
+}
+
+/* Search Form */
 .header-search-form {
     display: flex;
-    align-items: center; /* Revert to center, rely on internal padding/line-height */
-    flex-grow: 1; /* Allows it to take up space relative to other flex items */
-    line-height: normal; /* Set line-height on the flex container */
-    min-width: 200px; /* Minimum width for search */
-    max-width: 720px; /* Max width for search bar */
-    margin: 0 auto; /* Helps in centering if not fully grown */
-    height: 40px;
+    align-items: center;
+    flex-grow: 1;
+    min-width: 200px;
+    max-width: 600px;
+    margin: 0 auto;
+    height: 42px;
 }
 
 .header-search-form input[type="text"] {
     flex-grow: 1;
-    padding: 0 12px; /* Revert to zero vertical padding */
-    border: 1px solid #ccc;
+    padding: 0 16px;
+    margin: 0;
+    border: 1px solid var(--border);
     border-right: none;
-    border-radius: 40px 0 0 40px;
-    font-size: 16px;
-    height: 100%; /* Revert to 100% height */
+    border-radius: 24px 0 0 24px;
+    font-size: 15px;
+    height: 100%;
     box-sizing: border-box;
     outline: none;
-    line-height: normal; /* Revert to normal line-height */
-    /* vertical-align: middle; Removed as align-items: center on parent should handle this */
+    background-color: var(--surface);
+    color: var(--text);
+    font-family: 'Poppins', sans-serif;
+    transition: border-color var(--transition);
 }
 
 .header-search-form input[type="text"]:focus {
-    border-color: #1c62b9;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,.1);
+    border-color: var(--accent);
 }
 
 .header-search-form input[type="text"]::placeholder {
-    color: #6c757d; /* Standard placeholder color */
-    /* Inherit line-height and other properties from input */
+    color: var(--text-muted);
 }
 
-.header-search-form button {
-    background-color: #f8f8f8;
-    border: 1px solid #ccc;
-    height: 100%; /* Revert to 100% height */
-    width: 64px;
+form.header-search-form button,
+.header-search-form button[type="submit"] {
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+    height: 100%;
+    width: 56px;
     cursor: pointer;
-    border-radius: 0 40px 40px 0;
+    border-radius: 0 24px 24px 0;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    padding: 0; /* Revert to zero padding for button */
-    box-sizing: border-box; /* Ensure consistent height calculation with input */
-    outline: none; /* Match input field's outline property */
-    font-size: 16px; /* Match input field's font-size for consistency */
-    line-height: normal; /* Explicitly set to normal */
-    /* vertical-align: middle; Removed as align-items: center on parent should handle this */
+    padding: 0;
+    margin: 0;
+    outline: none;
+    transition: background-color var(--transition);
+    transform: none;
 }
 
-.header-search-form button:hover {
-    background-color: #f0f0f0;
-    border-color: #bbb;
-    box-shadow: 0 1px 0 rgba(0,0,0,.06);
+form.header-search-form button:hover,
+.header-search-form button[type="submit"]:hover {
+    background-color: var(--surface-hover);
+    transform: none;
 }
 
 .header-search-form button svg {
-    fill: #606060;
-    width: 24px;  /* Explicit width for the icon */
-    height: 24px; /* Explicit height for the icon */
+    fill: var(--text-secondary);
+    width: 22px;
+    height: 22px;
 }
 
-.header-search-form button:focus {
-    background-color: #f0f0f0; /* Match :hover state */
-    border-color: #bbb;       /* Match :hover state */
-    box-shadow: 0 1px 0 rgba(0,0,0,.06); /* Match :hover state */
-}
-
-/* Navigation Links (Right side) */
+/* Navigation Links */
 .header-nav-links {
-    margin-left: 40px; /* Space between search and nav links */
+    margin-left: auto;
     flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .header-nav-links ul {
@@ -132,203 +205,331 @@ header h1 a {
     margin: 0;
     display: flex;
     align-items: center;
+    gap: 8px;
 }
 
 .header-nav-links ul li {
-    margin-left: 24px;
-}
-
-.header-nav-links ul li:first-child {
     margin-left: 0;
 }
 
 .header-nav-links ul li a {
-    color: #0f0f0f;
+    color: var(--text-secondary);
     text-decoration: none;
     font-weight: 500;
     font-size: 14px;
-    padding: 8px 0;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .header-nav-links ul li a:hover {
-    color: #065fd4;
+    color: var(--text);
+    background-color: var(--surface-2);
     text-decoration: none;
 }
-/* Styles for the notification item in the nav bar */
+
+.header-nav-links ul li a svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+
+/* Upload button special style */
+.header-nav-links ul li a.nav-upload-btn {
+    background-color: var(--surface-2);
+    color: var(--text);
+}
+
+.header-nav-links ul li a.nav-upload-btn:hover {
+    background-color: var(--surface-hover);
+}
+
+/* Notification item in nav */
 .header-nav-links ul li.notification-item {
-    /* Ensures the li itself aligns well if its content needs specific alignment */
     display: flex;
     align-items: center;
 }
 
-.header-nav-links ul li.notification-item .notification-area {
-    /* Inherit font styles for consistency if any text were inside, though bell is an icon */
-    /* No specific styles needed here if #notification-bell-icon handles alignment */
-}
-
 .header-nav-links ul li.notification-item #notification-bell-icon {
-    display: flex; /* Helps center the bell icon if it's an SVG or has internal structure */
+    display: flex;
     align-items: center;
-    padding: 8px 0; /* Match vertical padding of other nav links */
-    line-height: 1; /* Ensure icon is not pushed by line height */
+    padding: 8px;
+    line-height: 1;
+    border-radius: 50%;
+    transition: background-color var(--transition);
+    cursor: pointer;
 }
 
-/* Adjust dropdown position slightly if needed, now that it's in a list item */
-.header-nav-links ul li.notification-item #notification-dropdown {
-    /* top: 100%; is usually fine, but if header height is fixed, ensure it drops correctly */
-    /* right: 0; is also usually fine */
+.header-nav-links ul li.notification-item #notification-bell-icon:hover {
+    background-color: var(--surface-2);
 }
 
-/* Container for page content */
+/* Container */
 .container {
-    width: calc(100% - 48px); /* Full width with padding */
-    max-width: 1280px; /* Max width for larger screens */
+    width: calc(100% - 48px);
+    max-width: 1280px;
     margin: 24px auto;
-    padding: 0; /* Remove old padding */
-    background-color: transparent; /* Let body background show */
-    box-shadow: none; /* Remove old shadow */
+    padding: 0;
 }
 
-/* Basic Card style for video items, channel info etc. */
-.card {
-    background-color: #fff;
-    border: 1px solid #e5e5e5;
-    border-radius: 4px;
-    margin-bottom: 16px;
-    padding: 16px;
-}
-
-/* Buttons */
+/* --- Buttons --- */
 button, input[type="submit"], .button {
-    background-color: #065fd4; /* YouTube's blue */
+    background-color: var(--primary);
     color: white;
-    padding: 10px 16px;
+    padding: 10px 20px;
     border: none;
-/* Active state for primary button (e.g., selected Like button) */
-.button.active {
-    background-color: #043e8c; /* Even darker blue */
-    font-weight: bold;
-}
-
-/* Active state for secondary/danger button (e.g., selected Dislike button) */
-.button-secondary.active-danger, .button.active-danger { /* Ensure it works for base button too if used */
-    background-color: #d93025; /* YouTube's red for active dislike */
-    color: white;
-    border-color: #d93025;
-    font-weight: bold;
-}
-    border-radius: 2px; /* YouTube's subtle border radius */
+    border-radius: var(--radius-sm);
     cursor: pointer;
     font-size: 14px;
-    font-weight: 500;
-    text-transform: uppercase;
+    font-weight: 600;
+    font-family: 'Poppins', sans-serif;
+    transition: all var(--transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-transform: none;
+    letter-spacing: 0;
 }
 
 button:hover, input[type="submit"]:hover, .button:hover {
-    background-color: #054cb0; /* Darker blue on hover */
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
 }
 
-/* Secondary button style (e.g., cancel, less prominent actions) */
+button:active, input[type="submit"]:active, .button:active {
+    transform: translateY(0);
+}
+
+.button.active {
+    background-color: var(--accent);
+    color: #000;
+    font-weight: 700;
+}
+
+.button-secondary.active-danger, .button.active-danger {
+    background-color: var(--error);
+    color: white;
+    border-color: var(--error);
+    font-weight: 700;
+}
+
 .button-secondary {
-    background-color: #f8f8f8;
-    color: #0f0f0f;
-    border: 1px solid #ccc;
+    background-color: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
 }
 
 .button-secondary:hover {
-    background-color: #eee;
-    border-color: #bbb;
+    background-color: var(--surface-hover);
+    border-color: var(--border-light);
 }
 
+.button-danger {
+    background-color: var(--error);
+    color: white;
+}
 
-/* Forms */
+.button-danger:hover {
+    background-color: #e53935;
+}
+
+.button-small {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+/* Django btn classes used in some templates */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Poppins', sans-serif;
+    transition: all var(--transition);
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    gap: 6px;
+}
+
+.btn-danger {
+    background-color: var(--error);
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #e53935;
+    color: white;
+}
+
+.btn-secondary {
+    background-color: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+    background-color: var(--surface-hover);
+    color: var(--text);
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.btn-outline-danger {
+    background-color: transparent;
+    color: var(--error);
+    border: 1px solid var(--error);
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    transition: all var(--transition);
+    text-decoration: none;
+}
+
+.btn-outline-danger:hover {
+    background-color: var(--error);
+    color: white;
+}
+
+/* --- Cards --- */
+.card {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    padding: 24px;
+}
+
+/* --- Section Titles --- */
+.section-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-top: 32px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    letter-spacing: -0.3px;
+}
+
+/* --- Forms --- */
 form p {
     margin-bottom: 16px;
 }
 
 form label {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     font-weight: 500;
     font-size: 14px;
+    color: var(--text-secondary);
 }
 
 form input[type="text"],
 form input[type="email"],
 form input[type="password"],
 form input[type="file"],
-form textarea {
+form textarea,
+form select {
     width: 100%;
-    padding: 10px;
-    margin-bottom: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box; /* Important for width 100% */
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-sizing: border-box;
     font-size: 14px;
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--surface);
+    color: var(--text);
+    transition: border-color var(--transition), box-shadow var(--transition);
 }
 
 form input[type="text"]:focus,
 form input[type="email"]:focus,
 form input[type="password"]:focus,
-/* Section Titles (e.g., "Latest Videos") */
-.section-title {
-    font-size: 20px; /* YouTube's typical section title size */
-    font-weight: 500;
-    margin-top: 24px; /* Space above the title */
-    margin-bottom: 16px; /* Space below the title, before content */
-    padding-bottom: 8px;
-    border-bottom: 1px solid #e0e0e0;
-}
 form input[type="file"]:focus,
-form textarea:focus {
-    border-color: #065fd4;
+form textarea:focus,
+form select:focus {
+    border-color: var(--accent);
     outline: none;
-    box-shadow: 0 0 0 1px #065fd4;
+    box-shadow: 0 0 0 3px rgba(62, 166, 255, 0.15);
 }
 
-form button[type="submit"] { /* Style for submit buttons within forms */
-    margin-top: 10px;
+form input::placeholder,
+form textarea::placeholder {
+    color: var(--text-muted);
 }
 
-/* Messages (success, error, info) */
+form select option {
+    background-color: var(--surface);
+    color: var(--text);
+}
+
+form button[type="submit"] {
+    margin-top: 12px;
+}
+
+/* --- Messages --- */
 .messages {
     list-style-type: none;
     padding: 0;
-    margin-bottom: 1em;
-}
-.messages li {
-    padding: 10px 15px;
-    margin-bottom: 10px;
-    border-radius: 4px;
-    font-size: 14px;
-}
-.messages li.success {
-    background-color: #e6f4ea;
-    color: #1e8e3e;
-    border: 1px solid #a8d8b9;
-}
-.messages li.error {
-    background-color: #fce8e6;
-    color: #d93025;
-    border: 1px solid #f4c5c0;
-}
-.messages li.info {
-    background-color: #e8f0fe;
-    color: #1a73e8;
-    border: 1px solid #c2d8fc;
+    margin-bottom: 1.5em;
 }
 
-/* Video Grid (for home page, search results, channel page) */
+.messages li {
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.messages li.success {
+    background-color: var(--success-bg);
+    color: var(--success);
+    border: 1px solid rgba(43, 166, 64, 0.25);
+}
+
+.messages li.error {
+    background-color: var(--error-bg);
+    color: var(--error);
+    border: 1px solid rgba(255, 78, 69, 0.25);
+}
+
+.messages li.info {
+    background-color: var(--info-bg);
+    color: var(--accent);
+    border: 1px solid rgba(62, 166, 255, 0.25);
+}
+
+/* --- Video Grid --- */
 .video-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Responsive grid */
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
 }
 
 .video-item {
-    background-color: #fff; /* Or transparent if you want body bg */
-    border-radius: 4px;
-    overflow: hidden; /* To clip thumbnail if it's larger */
+    background-color: transparent;
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: transform var(--transition);
+    cursor: pointer;
+}
+
+.video-item:hover {
+    transform: translateY(-4px);
 }
 
 .video-item a {
@@ -337,43 +538,142 @@ form button[type="submit"] { /* Style for submit buttons within forms */
     color: inherit;
 }
 
+.video-thumbnail {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius);
+}
+
 .video-thumbnail img {
     width: 100%;
     height: auto;
-    aspect-ratio: 16 / 9; /* Maintain 16:9 aspect ratio */
+    aspect-ratio: 16 / 9;
     object-fit: cover;
-    background-color: #eee; /* Placeholder color */
+    background-color: var(--surface);
     display: block;
+    transition: transform 0.3s ease;
+}
+
+.video-item:hover .video-thumbnail img {
+    transform: scale(1.03);
+}
+
+.video-thumbnail-placeholder {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background-color: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    border-radius: var(--radius);
+    font-size: 14px;
 }
 
 .video-info {
-    padding: 12px;
+    padding: 12px 4px;
 }
 
 .video-title {
-    font-size: 16px;
-    font-weight: 500;
-    color: #0f0f0f;
-    margin: 0 0 4px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 6px 0;
     display: -webkit-box;
-    -webkit-line-clamp: 2; /* Limit to 2 lines */
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
     line-height: 1.4;
 }
 
-.video-uploader, .video-views {
-    font-size: 12px;
-    color: #606060;
+.video-title a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.video-title a:hover {
+    color: var(--text);
+}
+
+.video-uploader {
+    font-size: 13px;
+    color: var(--text-secondary);
     margin-bottom: 2px;
 }
 
-/* Video Detail Page Specifics */
+.video-uploader a {
+    color: var(--text-secondary);
+}
+
+.video-uploader a:hover {
+    color: var(--text);
+}
+
+.video-views {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+/* Video card style (used in category/tag pages) */
+.video-card {
+    background-color: transparent;
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: transform var(--transition);
+}
+
+.video-card:hover {
+    transform: translateY(-4px);
+}
+
+.video-card a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.video-card img.video-thumbnail {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: var(--radius);
+    display: block;
+    background-color: var(--surface);
+}
+
+.video-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 10px 0 4px 0;
+    line-height: 1.4;
+}
+
+.video-card-uploader {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0 0 2px 0;
+}
+
+.video-card-uploader a {
+    color: var(--text-secondary);
+}
+
+.video-card-uploader a:hover {
+    color: var(--text);
+}
+
+.video-card-meta {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* --- Video Detail Page --- */
 .video-player-container {
     width: 100%;
-    max-width: 900px; /* Or adjust as needed */
-    margin-bottom: 20px;
+    max-width: 960px;
+    margin-bottom: 24px;
 }
 
 .video-player-container video {
@@ -381,147 +681,260 @@ form button[type="submit"] { /* Style for submit buttons within forms */
     height: auto;
     aspect-ratio: 16 / 9;
     background-color: #000;
+    border-radius: var(--radius);
 }
 
-.video-detail-info h2 { /* Video title on detail page */
-    font-size: 20px;
-    font-weight: 500;
+.video-detail-info {
+    max-width: 960px;
+}
+
+.video-detail-info h2 {
+    font-size: 22px;
+    font-weight: 700;
     margin-top: 0;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
+    color: var(--text);
+    line-height: 1.3;
 }
 
 .video-detail-meta {
     font-size: 14px;
-    color: #606060;
+    color: var(--text-secondary);
     margin-bottom: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.video-detail-meta a {
+    color: var(--accent);
+}
+
+.video-tags {
+    margin-bottom: 16px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.tag-link {
+    display: inline-block;
+    padding: 4px 12px;
+    background-color: var(--surface-2);
+    color: var(--accent) !important;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all var(--transition);
+    margin: 2px 4px 2px 0;
+}
+
+.tag-link:hover {
+    background-color: var(--surface-hover);
+    color: var(--accent-hover) !important;
 }
 
 .video-description {
     font-size: 14px;
-    line-height: 1.6;
-    margin-bottom: 20px;
-    white-space: pre-wrap; /* Preserve line breaks */
+    line-height: 1.7;
+    margin-bottom: 24px;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    background-color: var(--surface);
+    padding: 16px;
+    border-radius: var(--radius-sm);
 }
 
-/* Comments Section */
+/* Interactions Section (Likes/Dislikes) */
+.interactions-section {
+    margin-bottom: 24px;
+    padding: 16px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.interactions-section h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    color: var(--text);
+}
+
+.interactions-section #likes-count-display,
+.interactions-section #dislikes-count-display {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* --- Comments Section --- */
+.comments-section {
+    max-width: 960px;
+}
+
 .comments-section h3 {
     font-size: 18px;
-    font-weight: 500;
-    margin-bottom: 16px;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 8px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+    color: var(--text);
 }
 
 .comment {
     display: flex;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
+    gap: 12px;
 }
 
-.comment-author-avatar img { /* Placeholder for avatar */
+.comment-author-avatar {
+    flex-shrink: 0;
+}
+
+.comment-author-avatar img {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background-color: #ccc;
-    margin-right: 12px;
+    background-color: var(--surface-2);
+    margin-right: 0;
+}
+
+.comment-content {
+    flex-grow: 1;
+    min-width: 0;
 }
 
 .comment-content .comment-author {
-    font-weight: 500;
+    font-weight: 600;
     font-size: 13px;
-    margin-right: 6px;
+    color: var(--text);
+    margin-right: 8px;
 }
+
 .comment-content .comment-timestamp {
     font-size: 12px;
-    color: #606060;
+    color: var(--text-muted);
 }
+
 .comment-content .comment-text {
     font-size: 14px;
-    line-height: 1.5;
+    line-height: 1.6;
     margin-top: 4px;
+    color: var(--text-secondary);
 }
 
 .comment-form textarea {
     min-height: 60px;
     margin-bottom: 8px;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    resize: vertical;
 }
-/* Authentication Form Container (Login, Register) */
+
+.reply-form-container {
+    margin-top: 12px;
+    padding-left: 0;
+}
+
+.replies-container {
+    margin-top: 12px;
+    padding-left: 24px;
+    border-left: 2px solid var(--border);
+}
+
+/* --- Auth Form (Login/Register) --- */
+.auth-form-container .helptext {
+    display: none;
+}
+
 .auth-form-container {
-    max-width: 400px;
-    margin: 40px auto; /* Centering the form */
-    padding: 24px;
-    /* .card class already provides background and border, so we might not need to repeat it here if .card is applied */
+    max-width: 420px;
+    margin: 60px auto;
+    padding: 32px;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
 }
 
 .auth-form-container h2 {
     text-align: center;
-    margin-bottom: 24px;
-    font-size: 24px;
-    font-weight: 500;
-    color: #0f0f0f;
+    margin-bottom: 28px;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
 }
 
-.auth-form-container form p { /* Spacing for form elements rendered by {{ form.as_p }} */
+.auth-form-container form p {
     margin-bottom: 16px;
 }
 
-.auth-form-container form label {
-    font-weight: 500; /* Make labels a bit bolder if needed */
-}
-
-.auth-form-container .button { /* Ensure button is full width */
+.auth-form-container .button {
     width: 100%;
-    padding-top: 12px;
-    padding-bottom: 12px;
+    padding: 14px;
     font-size: 15px;
+    font-weight: 600;
 }
 
-.auth-form-container p a { /* Link to register/login page */
+.auth-form-container p a {
     display: block;
     text-align: center;
-    margin-top: 20px;
+    margin-top: 24px;
     font-size: 14px;
+    color: var(--accent);
 }
-/* Channel Page Specific Styles */
+
+/* --- Channel Page --- */
 .channel-banner {
     width: 100%;
-    height: 180px; /* Adjust height as needed */
-    background-color: #e0e0e0; /* Placeholder color for banner */
-    margin-bottom: 24px;
-    /* background-image: url('path/to/default-banner.jpg'); */ /* Optional default banner */
+    height: 200px;
+    background-color: var(--surface);
+    margin-bottom: 0;
     background-size: cover;
     background-position: center;
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.channel-banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .channel-header-info {
     display: flex;
     align-items: center;
-    padding: 0 16px; /* Padding within the container if .container is not used directly on this element */
-    margin-bottom: 24px;
+    padding: 24px 0;
+    gap: 24px;
 }
 
 .channel-avatar-container {
-    margin-right: 24px;
+    margin-right: 0;
+    flex-shrink: 0;
 }
 
 .channel-avatar {
-    width: 80px; /* YouTube's typical avatar size on channel page */
-    height: 80px;
+    width: 88px;
+    height: 88px;
     border-radius: 50%;
     object-fit: cover;
-    background-color: #ccc; /* Placeholder if image fails to load */
+    background-color: var(--surface-2);
+    border: 3px solid var(--border);
 }
 
 .channel-avatar-placeholder {
-    width: 80px;
-    height: 80px;
+    width: 88px;
+    height: 88px;
     border-radius: 50%;
-    background-color: #606060; /* Darker placeholder */
+    background: linear-gradient(135deg, var(--primary), #7c3aed);
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 32px; /* Large initial */
-    font-weight: 500;
+    font-size: 36px;
+    font-weight: 700;
 }
 
 .channel-meta {
@@ -529,114 +942,127 @@ form button[type="submit"] { /* Style for submit buttons within forms */
 }
 
 .channel-name {
-    font-size: 24px;
-    font-weight: 700; /* Bold channel name */
-    color: #0f0f0f;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
     margin: 0 0 4px 0;
+    letter-spacing: -0.3px;
 }
 
-.channel-stats { /* For subscriber count, video count etc. */
-    font-size: 13px;
-    color: #606060;
+.channel-stats {
+    font-size: 14px;
+    color: var(--text-secondary);
     margin-bottom: 4px;
 }
 
 .channel-description {
-    font-size: 13px;
-    color: #606060;
-    line-height: 1.4;
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.5;
     margin-bottom: 0;
     display: -webkit-box;
-    -webkit-line-clamp: 2; /* Limit description to 2 lines */
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .channel-actions {
-    margin-left: auto; /* Pushes buttons to the right */
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
 .channel-actions .button {
-    text-transform: uppercase;
-    font-weight: 500;
-    padding: 10px 16px;
+    font-weight: 600;
+    padding: 10px 24px;
+    text-transform: none;
 }
 
-.channel-actions .button-secondary { /* For "Subscribed" or "Edit Profile" */
-    background-color: #f2f2f2;
-    color: #0f0f0f;
+.channel-actions .button-secondary {
+    background-color: var(--surface-2);
+    color: var(--text);
 }
+
 .channel-actions .button-secondary:hover {
-    background-color: #e8e8e8;
+    background-color: var(--surface-hover);
 }
-/* Notification Bell Styles */
+
+/* --- Notification Bell --- */
 .notification-area {
     position: relative;
 }
 
 #notification-bell-icon {
     cursor: pointer;
-    font-size: 24px;
-    color: #606060;
-    position: relative; /* For positioning the dot and count */
+    font-size: 20px;
+    color: var(--text-secondary);
+    position: relative;
+}
+
+#notification-bell-icon svg {
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
 }
 
 #notification-indicator-dot {
     position: absolute;
     top: 0;
     right: 0;
-    width: 10px;
-    height: 10px;
-    background-color: red;
+    width: 9px;
+    height: 9px;
+    background-color: var(--primary);
     border-radius: 50%;
-    border: 1px solid white;
+    border: 2px solid var(--bg);
 }
 
 #notification-count {
     position: absolute;
-    top: -5px;
-    right: -8px;
-    background-color: red;
+    top: -6px;
+    right: -10px;
+    background-color: var(--primary);
     color: white;
-    border-radius: 50%;
-    padding: 1px 5px;
+    border-radius: 10px;
+    padding: 1px 6px;
     font-size: 10px;
-    line-height: 1;
+    font-weight: 700;
+    line-height: 1.2;
+    min-width: 16px;
+    text-align: center;
 }
 
 #notification-dropdown {
-    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
-    opacity: 0; /* Initial state for transition */
-    transform: translateY(-10px); /* Initial state for transition */
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    opacity: 0;
+    transform: translateY(-8px);
     position: absolute;
-    top: 100%;
-    right: 0;
-    background-color: white;
-    border: 1px solid #ccc;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* Softer shadow */
-    width: 360px; /* Increased width */
-    max-height: 450px; /* Increased max height */
+    top: calc(100% + 8px);
+    right: -12px;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    width: 380px;
+    max-height: 480px;
     overflow-y: auto;
     overflow-x: hidden;
     z-index: 1000;
     text-align: left;
-    border-radius: 8px; /* Rounded corners */
-    /* overflow: hidden;  Ensure content respects border-radius -- REMOVED as it might conflict with overflow-y: auto */
+    border-radius: var(--radius);
 }
 
-/* Notification Dropdown Header */
 #notification-dropdown .notification-dropdown-header {
-    padding: 12px 16px; /* Adjusted padding */
+    padding: 16px 20px;
     font-size: 16px;
-    font-weight: 500; /* Roboto Medium */
-    color: #0f0f0f; /* YouTube's primary text color */
-    border-bottom: 1px solid #e0e0e0; /* Separator line */
-    background-color: #f9f9f9; /* Light background for header */
+    font-weight: 700;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    background-color: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
-#notification-dropdown.visible { /* JS can add this class to show */
-    display: block !important; /* Ensure it's visible */
+#notification-dropdown.visible {
+    display: block !important;
     opacity: 1;
     transform: translateY(0);
 }
@@ -650,11 +1076,11 @@ form button[type="submit"] { /* Style for submit buttons within forms */
 }
 
 #notification-dropdown-list .notification-item {
-    padding: 16px; /* Uniform padding */
-    border-bottom: 1px solid #e9e9e9; /* Slightly darker border */
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
     cursor: pointer;
-    transition: background-color 0.2s ease;
-    display: block; /* Ensure it behaves as a block element for stacking */
+    transition: background-color var(--transition);
+    display: block;
 }
 
 #notification-dropdown-list .notification-item:last-child {
@@ -662,353 +1088,281 @@ form button[type="submit"] { /* Style for submit buttons within forms */
 }
 
 #notification-dropdown-list .notification-item:hover {
-    background-color: #f0f0f0; /* Subtle hover effect */
-}
-
-#notification-dropdown-list .notification-item:last-child {
-    border-bottom: none;
+    background-color: var(--surface-2);
 }
 
 #notification-dropdown-list .notification-item.unread {
-    background-color: #e8f0fe; /* Light blue for unread */
+    background-color: rgba(62, 166, 255, 0.06);
+    border-left: 3px solid var(--accent);
 }
 
 #notification-dropdown-list .notification-item .notification-item-content {
     display: flex;
     flex-direction: column;
-    gap: 6px; /* Increased spacing between elements */
+    gap: 4px;
 }
 
 #notification-dropdown-list .notification-item .notification-title {
-    font-weight: 500; /* Roboto medium */
-    font-size: 14px; /* Slightly adjusted size */
-    color: #0f0f0f;
-    margin: 0 0 2px 0; /* Add small bottom margin */
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text);
+    margin: 0 0 2px 0;
     line-height: 1.4;
 }
 
 #notification-dropdown-list .notification-item .notification-details {
     font-size: 13px;
-    color: #606060;
-    line-height: 1.5; /* Slightly increased line height for readability */
+    color: var(--text-secondary);
+    line-height: 1.5;
     margin: 0;
 }
 
 #notification-dropdown-list .notification-item a.notification-link {
     font-size: 13px;
-    font-weight: 500; /* Make it slightly bolder */
-    color: #065fd4; /* Consistent YouTube blue */
+    font-weight: 600;
+    color: var(--accent);
     text-decoration: none;
-    margin-top: 8px; /* More space above */
+    margin-top: 6px;
+    display: inline-block;
+}
+
+#notification-dropdown-list .notification-item a.notification-link:hover {
+    text-decoration: underline;
 }
 
 #notification-dropdown-list .notification-item .notification-timestamp {
-    font-size: 12px; /* Slightly larger */
-    color: #717171; /* Slightly darker grey */
-    margin-top: 6px; /* More space above */
-    text-align: right; /* Align to the right */
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-align: right;
 }
-
-/* This second rule for a.notification-link seems redundant or conflicting.
-   The one above already sets color to #065fd4.
-   If this is for a different context, it needs more specific selectors.
-   For now, I'll assume the first one is the primary one to keep and the hover effect.
-*/
-#notification-dropdown-list .notification-item a.notification-link:hover { /* Keep hover from the second block */
-    text-decoration: underline;
-}
-/* Removing the specific color: #007bff; rule here as it conflicts with the #065fd4 above.
-   If #007bff is needed for a specific case, the selector should be more specific.
-   Example:
-   #notification-dropdown-list .notification-item.special-type a.notification-link { color: #007bff; }
-*/
 
 #notification-dropdown-list .notification-item img {
     margin-top: 8px;
-    border-radius: 4px;
-    max-width: 120px; /* Slightly larger thumbnail */
+    border-radius: var(--radius-sm);
+    max-width: 120px;
     height: auto;
     object-fit: cover;
     aspect-ratio: 16 / 9;
 }
 
 #notification-dropdown-list .no-notifications-placeholder {
-    padding: 20px; /* More padding */
+    padding: 32px 20px;
     text-align: center;
-    color: #888;
-    font-size: 14px; /* Consistent font size */
+    color: var(--text-muted);
+    font-size: 14px;
 }
 
-/* Specific styles for notification types */
-/* These can remain as they are */
+/* Notification type colors */
 .new-video-notification strong {
-    color: #28a745; /* Green */
+    color: var(--success);
 }
 
 .new-reply-notification strong {
-    color: #17a2b8; /* Cyan */
-}
-/* Styles for username display in header */
-.header-nav-links .username-display-container {
-    display: flex;
-    align-items: center; /* Vertically align if needed */
-    padding: 0 10px; /* Add some padding */
+    color: var(--accent);
 }
 
-.header-nav-links .username-display {
-    color: #333; /* Darker text color for better readability */
-    font-weight: 500; /* Slightly bolder */
-    margin-right: 10px; /* Space before the next item (e.g., notification bell) */
-}
-
-/* Adjust existing notification item margin if needed, or rely on username-display margin-right */
-.header-nav-links .notification-item {
-    /* Example: margin-left: 5px; if username-display doesn't have margin-right */
-}
-/* User Menu Dropdown Styles */
+/* --- User Menu Dropdown --- */
 .header-nav-links .user-menu-container {
-    position: relative; /* Establishes a positioning context for the dropdown */
+    position: relative;
 }
 
 .header-nav-links .username-display {
     cursor: pointer;
     display: flex;
     align-items: center;
-    padding: 8px 0; /* Match other nav link vertical padding */
-    color: #0f0f0f;
-    font-weight: 500;
+    padding: 6px 12px;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: var(--radius-sm);
+    transition: background-color var(--transition);
+}
+
+.header-nav-links .username-display:hover {
+    background-color: var(--surface-2);
 }
 
 .header-nav-links .username-display svg {
-    fill: #606060; /* Icon color */
-    margin-left: 5px;
-    width: 20px; /* Explicit size */
-    height: 20px; /* Explicit size */
-    transition: transform 0.2s ease-in-out;
+    fill: var(--text-secondary);
+    margin-left: 4px;
+    width: 18px;
+    height: 18px;
+    transition: transform 0.2s ease;
 }
 
-.header-nav-links .user-menu-container .username-display:hover svg {
-    fill: #0f0f0f;
-}
 .header-nav-links .user-menu-container.open .username-display svg {
     transform: rotate(180deg);
 }
 
-
 .user-dropdown-menu {
-    display: none; /* Hidden by default, JS will toggle */
+    display: none;
     position: absolute;
-    top: calc(100% + 5px); /* Position below the trigger, with a small gap */
+    top: calc(100% + 8px);
     right: 0;
-    background-color: #fff;
-    min-width: 180px; /* Adequate width for items like "Edit Profile" */
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* Softer shadow */
-    z-index: 1001; /* Ensure it's above other content but potentially below modals */
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 8px 0; /* Padding inside the dropdown box */
-    /* list-style-type and margin moved to ul */
+    background-color: var(--surface);
+    min-width: 200px;
+    box-shadow: var(--shadow);
+    z-index: 1001;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 0;
+    overflow: hidden;
 }
 
 .user-dropdown-menu ul {
     list-style-type: none;
     padding: 0;
     margin: 0;
-    display: block; /* Explicitly set ul to block */
+    display: block;
 }
 
 .user-dropdown-menu ul li {
-    /* No margin needed here if padding is on links */
-    display: block !important; /* Force display: block to override other styles */
-    /* width: 100%; Removed as display:block should handle this */
+    display: block !important;
 }
 
-/* Add border to the first list item to separate it from the next */
 .user-dropdown-menu ul li:first-child {
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border);
 }
 
 .user-dropdown-menu ul li a {
-    display: block;
-    padding: 10px 16px; /* Comfortable padding for links */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
     text-decoration: none;
-    color: #0f0f0f; /* Standard text color */
+    color: var(--text-secondary);
     font-size: 14px;
-    /* white-space: nowrap; Removed as it's likely not needed for these short items and text-align handles alignment */
-    text-align: left; /* Ensure text is explicitly left-aligned */
+    font-weight: 500;
+    text-align: left;
+    transition: all var(--transition);
 }
 
 .user-dropdown-menu ul li a:hover {
-    background-color: #f0f0f0; /* Hover effect for links */
-    color: #030303;
+    background-color: var(--surface-2);
+    color: var(--text);
     text-decoration: none;
 }
 
-/* Optional: Add a separator if needed between groups of items */
-.user-dropdown-menu ul li.separator {
-    height: 1px;
-    background-color: #eee;
-    margin: 8px 0;
+.user-dropdown-menu ul li a svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+    flex-shrink: 0;
 }
 
-/* Ensure the username display container itself doesn't have conflicting styles */
-.header-nav-links .username-display-container {
-    /* This class was used before, ensure it doesn't conflict or remove if not needed */
-    /* If .user-menu-container is the new top-level li, this might be obsolete */
-}
-
-/* Adjustments for login/register links if they are styled similarly */
-.header-nav-links ul li.auth-link a {
-    /* Styles for login/register if they need to look like buttons or distinct */
-}
-
-/* Ensure dropdown arrow in username trigger is vertically centered */
-#user-menu-trigger svg {
-    transition: transform 0.2s ease-in-out;
-}
-
-#user-menu-trigger.open svg { /* Assuming JS adds 'open' class to trigger */
-    transform: rotate(180deg);
-}
-
-/* Styling for the "Hi, username" text itself if needed */
-.username-text {
-    /* e.g., margin-right: 5px; if icon is separate */
-}
-/* Edit Profile Page Styles */
+/* --- Edit Profile Page --- */
 .form-field {
-    margin-bottom: 1.5rem; /* Increased margin for better separation */
+    margin-bottom: 1.5rem;
 }
 
-.form-field p strong, /* For labels like "Banner image:" */
-.form-field > p:first-child { /* For manually added <p> labels */
-    font-weight: 500; /* Consistent with other labels */
-    font-size: 15px; /* Slightly larger label */
-    color: #0f0f0f;
+.form-field p strong,
+.form-field > p:first-child {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text);
     margin-bottom: 0.5rem;
     display: block;
 }
 
-/* Styling for Django's ClearableFileInput widget parts */
 .form-field input[type="file"] {
-    /* The "Change:" file input - use existing styles but ensure consistency */
-    /* Django might render this differently, so we target the input directly */
-    border: 1px solid #ccc;
-    padding: 8px 10px;
-    border-radius: 4px;
-    display: inline-block; /* Or block if it should take full width */
-    margin-top: 5px; /* Space from "Clear" checkbox if present */
-}
-
-/* "Currently: ..." text and "Clear" checkbox container */
-/* Django usually wraps these, or they are siblings of the input. */
-/* We might need to inspect the rendered HTML to be more precise if this doesn't work. */
-.form-field a[href*="/media/banner_pics/"] { /* Link to current banner image */
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
     display: inline-block;
+    margin-top: 5px;
+    background-color: var(--surface);
+    color: var(--text);
+}
+
+.form-field a[href*="/media/"] {
+    font-size: 0.9em;
+    color: var(--accent);
     margin-right: 10px;
-    word-break: break-all;
+    display: inline-block;
+    margin-bottom: 5px;
 }
 
-.form-field label[for$="-clear_id"] { /* Label for "Clear" checkbox */
-    font-weight: normal;
-    font-size: 13px;
-    margin-left: 5px;
-}
-
-.form-field input[type="checkbox"]#id_banner_image-clear {
-    margin-right: 5px;
-    vertical-align: middle;
-}
-
-
-/* Current Banner Preview Section in edit_profile.html */
 .current-banner-preview-container {
-    margin-top: 10px;
-    border: 1px solid #e0e0e0; /* Lighter border */
-    padding: 15px;
-    border-radius: 4px;
-    background-color: #f9f9f9; /* Light background */
+    margin-top: 12px;
+    border: 1px solid var(--border);
+    padding: 16px;
+    border-radius: var(--radius-sm);
+    background-color: var(--surface);
 }
 
 .current-banner-preview-container p.preview-title {
-    font-weight: 500;
+    font-weight: 600;
     font-size: 14px;
     margin-top: 0;
     margin-bottom: 10px;
-    color: #0f0f0f;
+    color: var(--text);
 }
 
 .current-banner-preview-container img {
     max-width: 100%;
-    max-height: 200px; /* Increased max-height for better preview */
-    border-radius: 4px;
+    max-height: 200px;
+    border-radius: var(--radius-sm);
     margin-bottom: 10px;
     display: block;
-    border: 1px solid #eee; /* Subtle border for the image */
+    border: 1px solid var(--border);
 }
 
 .current-banner-preview-container .button-danger {
-    /* Ensure danger button styles are applied if not already specific enough */
-    background-color: #cc0000; /* YouTube's red */
+    background-color: var(--error);
     color: white;
-    text-transform: uppercase;
-    font-weight: 500;
-    padding: 8px 12px; /* Smaller padding for small button */
+    font-weight: 600;
+    padding: 8px 14px;
     font-size: 13px;
 }
 
-.current-banner-preview-container .button-danger:hover {
-    background-color: #aa0000; /* Darker red on hover */
-}
-
-/* Adjustments for the main "Save Changes" button if needed */
 .edit-profile-form .button[type="submit"] {
-    margin-top: 20px; /* More space before save button */
-    padding: 12px 20px; /* Larger save button */
+    margin-top: 24px;
+    padding: 12px 24px;
 }
 
-/* Ensure the form elements within .form-field are styled consistently */
 .form-field textarea,
-.form-field input[type="text"], /* For other potential fields */
+.form-field input[type="text"],
 .form-field input[type="email"] {
     width: 100%;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
     box-sizing: border-box;
     font-size: 14px;
-    margin-top: 0.25rem; /* Small space after label */
+    margin-top: 0.25rem;
+    background-color: var(--surface);
+    color: var(--text);
+    font-family: 'Poppins', sans-serif;
 }
 
 .form-field textarea:focus,
 .form-field input[type="text"]:focus,
 .form-field input[type="email"]:focus,
 .form-field input[type="file"]:focus {
-    border-color: #065fd4;
+    border-color: var(--accent);
     outline: none;
-    box-shadow: 0 0 0 1px #065fd4;
+    box-shadow: 0 0 0 3px rgba(62, 166, 255, 0.15);
 }
 
-/* Helper text and error messages */
 .form-field .form-text.text-muted {
     font-size: 0.85em;
-    color: #606060;
+    color: var(--text-muted);
     display: block;
     margin-top: 0.3rem;
 }
 
 .form-field .alert.alert-danger {
     font-size: 0.85em;
-    color: #d93025; /* YouTube's error red */
-    background-color: #fce8e6;
-    border: 1px solid #f4c5c0;
-    padding: 8px 10px;
-    border-radius: 4px;
+    color: var(--error);
+    background-color: var(--error-bg);
+    border: 1px solid rgba(255, 78, 69, 0.25);
+    padding: 8px 12px;
+    border-radius: var(--radius-xs);
     margin-top: 0.5rem;
 }
-/* Custom styles for ClearableFileInput "Clear" functionality */
 
-/* Hide the default checkbox, we'll style its label as a button */
+/* Clear file input styling */
 .form-field input[type="checkbox"][id$="-clear_id"] {
     opacity: 0;
     width: 1px;
@@ -1017,124 +1371,131 @@ form button[type="submit"] { /* Style for submit buttons within forms */
     margin: 0;
     padding: 0;
     border: none;
-    overflow: hidden; /* Ensure it's completely hidden */
+    overflow: hidden;
 }
 
-/* Style the label for the "Clear" checkbox to look like a delete button */
 .form-field label[for$="-clear_id"] {
-    display: inline-flex; /* Use flex to align icon and text */
+    display: inline-flex;
     align-items: center;
-    background-color: #fef0f0; /* Softer light red background */
-    color: #d93025; /* Red text color (YouTube's error red) */
-    border: 1px solid #fbc6c4; /* Softer red border */
-    padding: 7px 12px; /* Slightly more padding */
-    border-radius: 4px;
+    background-color: var(--error-bg);
+    color: var(--error);
+    border: 1px solid rgba(255, 78, 69, 0.25);
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    font-weight: 500;
+    font-weight: 600;
     font-size: 13px;
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-    margin-top: 8px; /* Space from "Currently" link or top of its line */
-    margin-left: 0; /* Reset any previous left margin */
-    line-height: 1.2; /* Ensure text and icon align well */
+    transition: all var(--transition);
+    margin-top: 8px;
+    gap: 6px;
 }
 
-/* Add a trash icon using a pseudo-element */
 .form-field label[for$="-clear_id"]::before {
-    content: '🗑️'; /* Trash can emoji */
-    margin-right: 7px; /* Space between icon and text */
-    font-size: 1.15em; /* Adjust icon size */
-    line-height: 1; /* Prevent icon from affecting line height too much */
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff4e45' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6'/%3E%3Cpath d='M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'/%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
 }
-
-/* Add more explicit text using a pseudo-element if the original label text is just "Clear" */
-/* This assumes the original label text is "Clear". If not, this might duplicate. */
-/* For now, let's assume the label text itself is "Clear" and we are enhancing it. */
-/* If you want to replace "Clear" text entirely, you might need JS or to customize the widget's template. */
-/* We can add "(移除)" to the existing "Clear" text if it's there. */
-/* For now, the icon and button styling should be the main cue. */
-
 
 .form-field label[for$="-clear_id"]:hover {
-    background-color: #f8d7da; /* Slightly darker red on hover */
-    color: #721c24; /* Darker text color on hover */
-    border-color: #f5c6cb;
+    background-color: var(--error);
+    color: #fff;
+    border-color: var(--error);
 }
 
-/* Styling for when the hidden checkbox is checked - make label appear "active" */
+.form-field label[for$="-clear_id"]:hover::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6'/%3E%3Cpath d='M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'/%3E%3C/svg%3E");
+}
+
 .form-field input[type="checkbox"][id$="-clear_id"]:checked + label[for$="-clear_id"] {
-    background-color: #d93025; /* Strong red background when active */
-    color: #fff; /* White text when active */
-    border-color: #ac261f; /* Darker border when active */
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+    background-color: var(--error);
+    color: transparent;
+    border-color: var(--error);
+    position: relative;
 }
 
 .form-field input[type="checkbox"][id$="-clear_id"]:checked + label[for$="-clear_id"]::before {
-    filter: brightness(0) invert(1); /* Make icon white if it's an emoji that supports filter */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6'/%3E%3Cpath d='M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'/%3E%3C/svg%3E");
 }
 
-
-/* Style the "Currently: <filename>" link */
-.form-field a[href*="/media/"] {
-    font-size: 0.9em;
-    color: #555;
-    margin-right: 10px;
-    vertical-align: middle; /* Align with the (now hidden) checkbox's original position */
-    display: inline-block;
-    margin-bottom: 5px; /* Space before the clear button if it's on a new line */
+.form-field input[type="checkbox"][id$="-clear_id"]:checked + label[for$="-clear_id"]::after {
+    content: 'Will be removed on save';
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
 }
 
-/* Ensure the "Change:" file input is styled and spaced appropriately */
-.form-field input[type="file"] { /* General file input for "Change:" */
-    margin-top: 10px; /* Space from the "Clear" button or "Currently" link */
-    display: block; /* Make it take its own line for clarity */
-}
-
-/* If there's a <br> tag used by Django widget, this might also be relevant */
 .form-field br {
-    display: none; /* Attempt to hide default <br> if it interferes with new layout */
+    display: none;
 }
-/* If the "Clear" label and "Change" input are separated by <br>, manage spacing */
-.form-field label[for$="-clear_id"] + br + input[type="file"] {
-    margin-top: 10px;
+
+/* ClearableFileInput layout: stack elements vertically */
+.form-field a[href*="/media/"] {
+    display: block;
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 8px;
+    word-break: break-all;
 }
-.form-field input[type="checkbox"][id$="-clear_id"] + label[for$="-clear_id"] + br + input[type="file"]{
-    margin-top:10px;
+
+.form-field label[for$="-clear_id"] {
+    display: inline-flex;
+    margin-bottom: 8px;
 }
-/* Tag input styles */
+
+.form-field input[type="file"] {
+    margin-top: 4px;
+    display: block;
+}
+
+/* --- Tag Input --- */
 .tag-input-container {
-    border: 1px solid #ccc;
-    padding: 8px;
-    border-radius: 4px;
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    background-color: #fff; /* Or a dark background like in the image */
+    background-color: var(--surface);
+    gap: 6px;
+    transition: border-color var(--transition);
+}
+
+.tag-input-container:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(62, 166, 255, 0.15);
 }
 
 .tag-pills-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px; /* Spacing between pills */
-    margin-bottom: 0; /* Reset margin if inside a p tag */
+    gap: 6px;
+    margin-bottom: 0;
 }
 
 .tag-pill {
-    background-color: #555; /* Dark background for pill */
+    background: linear-gradient(135deg, var(--primary), #7c3aed);
     color: white;
-    padding: 5px 10px;
-    border-radius: 15px; /* Rounded pill shape */
+    padding: 5px 12px;
+    border-radius: 20px;
     display: flex;
     align-items: center;
-    font-size: 0.9em;
+    font-size: 13px;
+    font-weight: 500;
     line-height: 1;
+    gap: 6px;
 }
 
 .tag-pill .remove-tag {
-    margin-left: 8px;
     cursor: pointer;
     font-weight: bold;
-    color: #eee;
+    color: rgba(255, 255, 255, 0.7);
     font-size: 1.1em;
+    transition: color var(--transition);
+    line-height: 1;
 }
 
 .tag-pill .remove-tag:hover {
@@ -1145,40 +1506,218 @@ form button[type="submit"] { /* Style for submit buttons within forms */
     border: none;
     outline: none;
     flex-grow: 1;
-    padding: 6px 0; /* Match pill padding for alignment */
-    margin-left: 6px; /* Space after the last pill or if no pills */
-    background-color: transparent; /* Make it blend with container */
-    color: #333; /* Or white if container is dark */
-    min-width: 150px; /* Ensure it has some width to type */
+    padding: 6px 0;
+    background-color: transparent;
+    color: var(--text);
+    min-width: 150px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
 }
 
-/* Adjust if your main.css has conflicting styles for inputs */
-.tag-input-container input[type="text"].tag-text-input {
-    box-shadow: none; /* Remove default browser/framework shadows */
-    height: auto; /* Override fixed heights if any */
-    margin-bottom: 0; /* Override default margins */
-}
-
-/* Example for dark theme like the image provided */
-/*
-.tag-input-container {
-    background-color: #2d2d2d;
-    border-color: #444;
-}
-.tag-text-input {
-    color: #f1f1f1;
-}
 .tag-text-input::placeholder {
-    color: #888;
+    color: var(--text-muted);
 }
-.tag-pill {
-    background-color: #4a4a4a;
-    color: #e0e0e0;
+
+.tag-input-container input[type="text"].tag-text-input {
+    box-shadow: none;
+    height: auto;
+    margin-bottom: 0;
+    border: none;
+    padding: 6px 0;
 }
-.tag-pill .remove-tag {
-    color: #ccc;
+
+/* --- Processing Spinner --- */
+.processing-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
 }
-.tag-pill .remove-tag:hover {
-    color: #fff;
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
-*/
+
+/* --- Status Banners --- */
+.status-banner {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background-color: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    flex-direction: column;
+    gap: 12px;
+    border-radius: var(--radius);
+}
+
+.status-banner--error {
+    background-color: var(--surface);
+    border: 1px solid rgba(255, 78, 69, 0.3);
+}
+
+.status-banner--processing {
+    background-color: var(--surface);
+}
+
+/* --- Utilities --- */
+.text-danger {
+    color: var(--error);
+}
+
+.my-4 {
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.mt-4 {
+    margin-top: 1.5rem;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 20px 0;
+}
+
+/* Category list */
+.list-group {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.list-group-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    color: var(--text);
+    font-weight: 500;
+    transition: background-color var(--transition);
+}
+
+.list-group-item:hover {
+    background-color: var(--surface-2);
+}
+
+/* --- Responsive --- */
+@media (max-width: 1024px) {
+    .video-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 20px;
+    }
+}
+
+@media (max-width: 768px) {
+    header {
+        padding: 0 12px;
+        height: 56px;
+    }
+
+    header h1 {
+        font-size: 18px;
+        margin-right: 12px;
+    }
+
+    .header-search-form {
+        max-width: 100%;
+        margin: 0 8px;
+    }
+
+    .header-nav-links {
+        margin-left: 8px;
+    }
+
+    .header-nav-links ul {
+        gap: 2px;
+    }
+
+    .header-nav-links ul li a {
+        padding: 8px;
+        font-size: 13px;
+    }
+
+    /* Hide text labels on mobile, show only icons */
+    .header-nav-links ul li a .nav-text {
+        display: none;
+    }
+
+    .container {
+        width: calc(100% - 24px);
+        margin: 16px auto;
+    }
+
+    .video-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .channel-header-info {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+    }
+
+    .channel-actions {
+        margin-left: 0;
+    }
+
+    .channel-name {
+        font-size: 22px;
+    }
+
+    .video-detail-meta {
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .auth-form-container {
+        margin: 24px auto;
+        padding: 24px;
+    }
+
+    #notification-dropdown {
+        width: calc(100vw - 24px);
+        right: -60px;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-search-form {
+        min-width: 120px;
+    }
+
+    .header-nav-links ul li a {
+        padding: 6px;
+    }
+}
+
+/* --- Reduced Motion --- */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* --- Focus Visible --- */
+*:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+button:focus-visible,
+.button:focus-visible,
+.btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}

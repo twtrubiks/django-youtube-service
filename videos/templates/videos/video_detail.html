@@ -8,41 +8,31 @@
         {% if video.processing_status == 'completed' and video.video_file %}
         <video id="video-player" controls style="width: 100%; height: auto;">
             {% if video.hls_path %}
-                <!-- HLS 播放清單將通過 JavaScript 載入 -->
+                <!-- HLS playlist loaded via JavaScript -->
             {% else %}
                 <source src="{{ video.video_file.url }}" type="video/mp4">
             {% endif %}
             Your browser does not support the video tag.
         </video>
         {% elif video.processing_status == 'failed' %}
-        <div style="width:100%; aspect-ratio: 16/9; background-color: #1a1a1a; display:flex; align-items:center; justify-content:center; color:#fff; flex-direction: column; gap: 12px;">
-            <span style="font-size: 48px;">&#9888;</span>
-            <span style="font-size: 18px;">影片處理失敗，請重新上傳</span>
-            <span style="font-size: 18px;">Video processing failed. Please re-upload.</span>
+        <div class="status-banner status-banner--error">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="var(--error)"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+            <span style="font-size: 18px; font-weight: 600;">Video processing failed</span>
+            <span style="font-size: 14px; color: var(--text-secondary);">Please try re-uploading your video</span>
         </div>
         {% elif video.video_file %}
-        <div id="processing-banner" style="width:100%; aspect-ratio: 16/9; background-color: #1a1a1a; display:flex; align-items:center; justify-content:center; color:#fff; flex-direction: column; gap: 12px;">
+        <div id="processing-banner" class="status-banner status-banner--processing">
             <div class="processing-spinner"></div>
-            <span style="font-size: 18px;">影片處理中，請稍候...</span>
-            <span style="font-size: 18px;">Video is being processed. Please wait...</span>
-            <span style="font-size: 14px; color: #aaa;">頁面將自動重新整理 / Page will auto-refresh</span>
+            <span style="font-size: 18px; font-weight: 600;">Processing your video...</span>
+            <span style="font-size: 14px; color: var(--text-secondary);">Page will auto-refresh</span>
         </div>
-        <style>
-            .processing-spinner {
-                width: 48px; height: 48px;
-                border: 4px solid rgba(255,255,255,0.2);
-                border-top-color: #fff;
-                border-radius: 50%;
-                animation: spin 1s linear infinite;
-            }
-            @keyframes spin { to { transform: rotate(360deg); } }
-        </style>
         <script>
-            // 每 15 秒自動重新整理，直到影片處理完成
             setTimeout(function() { location.reload(); }, 15000);
         </script>
         {% else %}
-        <div style="width:100%; aspect-ratio: 16/9; background-color: #000; display:flex; align-items:center; justify-content:center; color:#fff;">Video file not available.</div>
+        <div class="status-banner">
+            <span style="font-size: 16px; color: var(--text-secondary);">Video file not available.</span>
+        </div>
         {% endif %}
     </div>
 
@@ -58,48 +48,52 @@
             {% endif %}
         </div>
         {% if video.tags.all %}
-        <div class="video-tags" style="margin-bottom: 10px;">
-            Tags:
+        <div class="video-tags">
             {% for tag in video.tags.all %}
-                <a href="{% url 'videos:videos_by_tag' tag.slug %}" class="tag-link">{{ tag.name }}</a>{% if not forloop.last %}, {% endif %}
+                <a href="{% url 'videos:videos_by_tag' tag.slug %}" class="tag-link">{{ tag.name }}</a>
             {% endfor %}
         </div>
         {% endif %}
         {% if request.user == video.uploader %}
-            <a href="{% url 'videos:edit_video' video.id %}" class="button button-secondary" style="margin-bottom: 16px; display: inline-block; margin-right: 8px;">Edit Video</a>
-            <a href="{% url 'videos:delete_video' video.id %}" class="button button-danger" style="margin-bottom: 16px; display: inline-block;">Delete Video</a>
+            <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+                <a href="{% url 'videos:edit_video' video.id %}" class="button button-secondary">Edit Video</a>
+                <a href="{% url 'videos:delete_video' video.id %}" class="button button-danger">Delete Video</a>
+            </div>
         {% endif %}
         <div class="video-description">
             {{ video.description|linebreaksbr }}
         </div>
     </div>
 
-    <div class="interactions-section" style="margin-bottom: 20px;">
-        <h4>Likes/Dislikes</h4>
+    <div class="interactions-section">
+        <h4>Likes / Dislikes</h4>
         <div>
-            <span id="likes-count-display">Likes: {{ likes_count }}</span> |
+            <span id="likes-count-display">Likes: {{ likes_count }}</span>
+            <span style="color: var(--text-muted); margin: 0 8px;">|</span>
             <span id="dislikes-count-display">Dislikes: {{ dislikes_count }}</span>
         </div>
         {% if user.is_authenticated %}
-        <form id="vote-form" method="post" action="{% url 'interactions:vote_video' video.id %}" style="margin-top: 10px;">
+        <form id="vote-form" method="post" action="{% url 'interactions:vote_video' video.id %}" style="margin-top: 12px; display: flex; gap: 8px;">
             {% csrf_token %}
             <button type="submit" name="vote_type" value="like"
-                    class="button {% if user_vote == 'like' %}active{% endif %}" style="margin-right: 8px;" id="like-button">
+                    class="button button-secondary {% if user_vote == 'like' %}active{% endif %}" id="like-button">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
                 Like
             </button>
             <button type="submit" name="vote_type" value="dislike"
                     class="button button-secondary {% if user_vote == 'dislike' %}active-danger{% endif %}" id="dislike-button">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"/></svg>
                 Dislike
             </button>
         </form>
         {% else %}
-            <p><a href="{% url 'users:login' %}?next={{ request.path }}">Log in</a> to like or dislike.</p>
+            <p style="margin-top: 12px;"><a href="{% url 'users:login' %}?next={{ request.path }}">Log in</a> to like or dislike.</p>
         {% endif %}
     </div>
 
     <div class="comments-section">
         <h3>Comments (<span id="comments-count">{{ comments.count }}</span>)</h3>
-        <div id="comment-form-errors" style="color: red; font-size: 0.9em; margin-bottom: 10px;"></div>
+        <div id="comment-form-errors" style="color: var(--error); font-size: 0.9em; margin-bottom: 10px;"></div>
         {% if user.is_authenticated %}
             <form id="main-comment-form" method="post" action="{% url 'interactions:add_comment' video.id %}" class="comment-form">
                 {% csrf_token %}
@@ -113,19 +107,17 @@
 
         <div id="comments-list">
         {% for comment in comments %}
-            {% if not comment.parent_comment %} {# Only display top-level comments here #}
+            {% if not comment.parent_comment %}
                 {% include "interactions/_comment_detail.html" with comment=comment video=video request=request %}
             {% endif %}
         {% empty %}
-            <p id="no-comments-message">No comments yet. Be the first to comment!</p>
+            <p id="no-comments-message" style="color: var(--text-muted); text-align: center; padding: 24px 0;">No comments yet. Be the first to comment!</p>
         {% endfor %}
         </div>
 
-        <!-- HLS.js 庫 -->
         <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
         <script>
-        // HLS 播放器初始化
         {% if video.hls_path %}
         document.addEventListener('DOMContentLoaded', function() {
             const video = document.getElementById('video-player');
@@ -151,36 +143,26 @@
                     if (data.fatal) {
                         switch(data.type) {
                             case Hls.ErrorTypes.NETWORK_ERROR:
-                                console.log('Network error, trying to recover...');
                                 hls.startLoad();
                                 break;
                             case Hls.ErrorTypes.MEDIA_ERROR:
-                                console.log('Media error, trying to recover...');
                                 hls.recoverMediaError();
                                 break;
                             default:
-                                console.log('Fatal error, cannot recover');
                                 hls.destroy();
-                                // 回退到原始 MP4 文件
                                 video.src = "{{ video.video_file.url }}";
                                 break;
                         }
                     }
                 });
 
-                // 清理資源
                 window.addEventListener('beforeunload', function() {
-                    if (hls) {
-                        hls.destroy();
-                    }
+                    if (hls) hls.destroy();
                 });
 
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                // Safari 原生支援 HLS
                 video.src = hlsUrl;
             } else {
-                // 不支援 HLS，回退到 MP4
-                console.log('HLS not supported, falling back to MP4');
                 video.src = "{{ video.video_file.url }}";
             }
         });
@@ -219,15 +201,14 @@
                 e.preventDefault();
                 const formData = new FormData(form);
                 const commentContent = formData.get('content').trim();
-                const commentFormErrors = document.getElementById('comment-form-errors'); // General error display for main form
+                const commentFormErrors = document.getElementById('comment-form-errors');
 
-                if (commentFormErrors && !isReply) { // Clear only for main form, replies might have their own error spots or rely on this
+                if (commentFormErrors && !isReply) {
                     commentFormErrors.innerHTML = '';
                 }
 
                 if (!commentContent) {
                     if (commentFormErrors && !isReply) commentFormErrors.innerHTML = '<p>Comment cannot be empty.</p>';
-                    // For reply forms, you might want a more specific error location or alert
                     if (isReply) alert('Reply cannot be empty.');
                     return;
                 }
@@ -251,10 +232,9 @@
                             const parentCommentRepliesContainer = document.getElementById('replies-to-' + data.parent_comment_id);
                             if (parentCommentRepliesContainer) {
                                 parentCommentRepliesContainer.insertAdjacentHTML('beforeend', data.comment_html);
-                                // Re-attach event listeners for new reply forms within the newly added comment_html if it contains them
                                 const newReplyForms = parentCommentRepliesContainer.querySelectorAll('.reply-form-actual');
                                 newReplyForms.forEach(newForm => {
-                                    if (!newForm.dataset.listenerAttached) { // Avoid double-attaching
+                                    if (!newForm.dataset.listenerAttached) {
                                         handleCommentSubmission(newForm, true);
                                         newForm.dataset.listenerAttached = 'true';
                                     }
@@ -265,7 +245,6 @@
                             if (noCommentsMessage) {
                                 noCommentsMessage.style.display = 'none';
                             }
-                             // Re-attach event listeners for new reply forms within the newly added comment_html
                             const newTopLevelCommentElement = document.getElementById('comment-' + data.comment_id);
                             if (newTopLevelCommentElement) {
                                 const newReplyForms = newTopLevelCommentElement.querySelectorAll('.reply-form-actual');
@@ -277,12 +256,11 @@
                                 });
                             }
                         }
-                        form.reset(); // Reset the form that was submitted
-                        if (isReply) { // Hide reply form after successful submission
+                        form.reset();
+                        if (isReply) {
                             const formContainer = form.closest('.reply-form-container');
                             if (formContainer) formContainer.style.display = 'none';
                         }
-                        // Update comments count - this might need adjustment if replies shouldn't count towards main total
                         commentsCountSpan.textContent = parseInt(commentsCountSpan.textContent) + 1;
 
                     } else if (data.status === 'error') {
@@ -291,12 +269,11 @@
                             for (const field in data.errors) {
                                 errorMessages += `<p>${field}: ${data.errors[field].join(', ')}</p>`;
                             }
-                            if (!errorMessages && data.message) { // General message if no field errors
+                            if (!errorMessages && data.message) {
                                 errorMessages = `<p>${data.message}</p>`;
                             }
                             commentFormErrors.innerHTML = errorMessages;
                         } else if (isReply) {
-                            // Handle reply form errors, e.g., by alerting or displaying near the form
                             alert('Error posting reply: ' + (data.message || JSON.stringify(data.errors)));
                         }
                     }
@@ -309,15 +286,12 @@
             });
         }
 
-
         document.addEventListener('DOMContentLoaded', function() {
-            // Main Comment Form
             const mainCommentForm = document.getElementById('main-comment-form');
             if (mainCommentForm) {
                 handleCommentSubmission(mainCommentForm, false);
             }
 
-            // Existing Reply Forms on page load
             const replyForms = document.querySelectorAll('.reply-form-actual');
             replyForms.forEach(form => {
                 if (!form.dataset.listenerAttached) {
@@ -326,18 +300,15 @@
                 }
             });
 
-            // Vote Form
             const voteForm = document.getElementById('vote-form');
             if (voteForm) {
                 voteForm.addEventListener('submit', function(e) {
                     e.preventDefault();
                     const formData = new FormData(voteForm);
-                    // Get the value of the button that was clicked to submit the form
                     const voteType = e.submitter && e.submitter.name === 'vote_type' ? e.submitter.value : null;
                     if (voteType) {
-                        formData.append('vote_type', voteType); // Ensure vote_type is in formData if using submitter
+                        formData.append('vote_type', voteType);
                     }
-
 
                     fetch(voteForm.action, {
                         method: 'POST',

@@ -7,24 +7,34 @@
     <h2 class="section-title">Videos in Category: {{ category.name }}</h2>
 
     {% if videos %}
-        <div class="video-grid"> {# Assuming you have a .video-grid class for styling #}
+        <div class="video-grid">
             {% for video in videos %}
-            <div class="video-card"> {# Assuming you have a .video-card class #}
+            <div class="video-item">
                 <a href="{% url 'videos:video_detail' video.id %}">
-                    {% if video.thumbnail %}
-                        <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail" class="video-thumbnail">
-                    {% else %}
-                        <div class="video-thumbnail-placeholder">No Thumbnail</div>
-                    {% endif %}
-                    <h3 class="video-card-title">{{ video.title }}</h3>
+                    <div class="video-thumbnail">
+                        {% if video.thumbnail %}
+                            <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail">
+                        {% else %}
+                            <div class="video-thumbnail-placeholder">No Thumbnail</div>
+                        {% endif %}
+                    </div>
                 </a>
-                <p class="video-card-uploader">By: <a href="{% url 'users:channel' video.uploader.username %}">{{ video.uploader.username }}</a></p>
-                <p class="video-card-meta">{{ video.views_count }} views &bull; {{ video.upload_date|date:"Y-m-d" }}</p>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="{% url 'videos:video_detail' video.id %}">{{ video.title }}</a>
+                    </h3>
+                    <div class="video-uploader">
+                        <a href="{% url 'users:channel' video.uploader.username %}">{{ video.uploader.username }}</a>
+                    </div>
+                    <div class="video-views">
+                        {{ video.views_count }} views &bull; {{ video.upload_date|timesince }} ago
+                    </div>
+                </div>
             </div>
             {% endfor %}
         </div>
     {% else %}
-        <p>No videos found in this category.</p>
+        <p style="color: var(--text-secondary); text-align: center; padding: 48px 0;">No videos found in this category.</p>
     {% endif %}
 </div>
 {% endblock %}

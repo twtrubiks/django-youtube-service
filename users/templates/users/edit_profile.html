@@ -1,6 +1,6 @@
 {% extends "users/base.html" %}
 
-{% block title %}Edit Profile - MyTube{% endblock %}
+{% block title %}Edit Profile - StreamCraft{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -12,61 +12,60 @@
       {% endfor %}
     </ul>
   {% endif %}
-  <div class="card" style="padding: 24px;">
+  <div class="card">
     <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
-      <h3 style="font-size: 18px; font-weight: 500; margin-top:0; margin-bottom: 16px; border-bottom: 1px solid #eee; padding-bottom: 8px;">User Information</h3>
+      <h3 style="font-size: 18px; font-weight: 600; margin-top: 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px; color: var(--text);">User Information</h3>
       {{ user_form.as_p }}
-      <h3 style="font-size: 18px; font-weight: 500; margin-top:24px; margin-bottom: 16px; border-bottom: 1px solid #eee; padding-bottom: 8px;">Profile Information</h3>
-      <div class="form-field" style="margin-bottom: 1rem;">
-        <p style="font-weight: bold; margin-bottom: 0.5rem;">{{ profile_form.profile_picture.label_tag }}</p>
+      <h3 style="font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px; color: var(--text);">Profile Information</h3>
+      <div class="form-field">
+        <p style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text);">{{ profile_form.profile_picture.label_tag }}</p>
         {{ profile_form.profile_picture }}
         {% if profile_form.profile_picture.field.help_text %}
-          <small class="form-text text-muted" style="display: block; margin-top: 0.25rem;">{{ profile_form.profile_picture.field.help_text }}</small>
+          <small class="form-text text-muted">{{ profile_form.profile_picture.field.help_text }}</small>
         {% endif %}
         {% for error in profile_form.profile_picture.errors %}
-          <div class="alert alert-danger" style="margin-top: 0.5rem; color: red; font-size: 0.9em;">{{ error }}</div>
+          <div class="alert alert-danger">{{ error }}</div>
         {% endfor %}
 
         {% if profile_form.instance.profile_picture and profile_form.instance.profile_picture.url %}
-        <div style="margin-top: 10px; border: 1px solid #ddd; padding: 10px; border-radius: 4px; background-color: #f9f9f9; max-width: 200px;"> {# Added max-width for better profile pic display #}
-          <p style="font-weight:500; margin-top:0; margin-bottom: 8px;">Current Profile Picture Preview:</p>
-          <img src="{{ profile_form.instance.profile_picture.url }}" alt="Current Profile Picture" style="max-width: 100%; height: auto; border-radius: 50%; margin-bottom: 8px; display: block; border: 1px solid #eee; object-fit: cover; width: 100px; height: 100px;"> {# Adjusted styles for profile picture #}
+        <div style="margin-top: 12px; border: 1px solid var(--border); padding: 12px; border-radius: var(--radius-sm); background-color: var(--surface-2); max-width: 200px;">
+          <p style="font-weight: 600; margin-top: 0; margin-bottom: 8px; font-size: 13px; color: var(--text-secondary);">Current Profile Picture:</p>
+          <img src="{{ profile_form.instance.profile_picture.url }}" alt="Current Profile Picture" style="width: 100px; height: 100px; border-radius: 50%; display: block; border: 2px solid var(--border); object-fit: cover;">
         </div>
         {% endif %}
       </div>
 
-      <div class="form-field" style="margin-bottom: 1rem;">
-        <p style="font-weight: bold; margin-bottom: 0.5rem;">{{ profile_form.channel_description.label_tag }}</p>
+      <div class="form-field">
+        <p style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text);">{{ profile_form.channel_description.label_tag }}</p>
         {{ profile_form.channel_description }}
         {% if profile_form.channel_description.field.help_text %}
-          <small class="form-text text-muted" style="display: block; margin-top: 0.25rem;">{{ profile_form.channel_description.field.help_text }}</small>
+          <small class="form-text text-muted">{{ profile_form.channel_description.field.help_text }}</small>
         {% endif %}
         {% for error in profile_form.channel_description.errors %}
-          <div class="alert alert-danger" style="margin-top: 0.5rem; color: red; font-size: 0.9em;">{{ error }}</div>
+          <div class="alert alert-danger">{{ error }}</div>
         {% endfor %}
       </div>
 
-      <div class="form-field" style="margin-bottom: 1rem;">
-        <p style="font-weight: bold; margin-bottom: 0.5rem;">{{ profile_form.banner_image.label_tag }}</p>
-        {# This will render the "Currently", "Clear checkbox" and "Change" file input #}
+      <div class="form-field">
+        <p style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text);">{{ profile_form.banner_image.label_tag }}</p>
         {{ profile_form.banner_image }}
         {% if profile_form.banner_image.field.help_text %}
-          <small class="form-text text-muted" style="display: block; margin-top: 0.25rem;">{{ profile_form.banner_image.field.help_text }}</small>
+          <small class="form-text text-muted">{{ profile_form.banner_image.field.help_text }}</small>
         {% endif %}
         {% for error in profile_form.banner_image.errors %}
-          <div class="alert alert-danger" style="margin-top: 0.5rem; color: red; font-size: 0.9em;">{{ error }}</div>
+          <div class="alert alert-danger">{{ error }}</div>
         {% endfor %}
 
         {% if profile_form.instance.banner_image and profile_form.instance.banner_image.url %}
-        <div style="margin-top: 10px; border: 1px solid #ddd; padding: 10px; border-radius: 4px; background-color: #f9f9f9;">
-          <p style="font-weight:500; margin-top:0; margin-bottom: 8px;">Current Banner Preview:</p>
-          <img src="{{ profile_form.instance.banner_image.url }}" alt="Current Banner" style="max-width: 100%; max-height: 150px; border-radius: 4px; margin-bottom: 8px; display: block; border: 1px solid #eee;">
+        <div style="margin-top: 12px; border: 1px solid var(--border); padding: 12px; border-radius: var(--radius-sm); background-color: var(--surface-2);">
+          <p style="font-weight: 600; margin-top: 0; margin-bottom: 8px; font-size: 13px; color: var(--text-secondary);">Current Banner Preview:</p>
+          <img src="{{ profile_form.instance.banner_image.url }}" alt="Current Banner" style="max-width: 100%; max-height: 150px; border-radius: var(--radius-sm); display: block; border: 1px solid var(--border);">
         </div>
         {% endif %}
       </div>
 
-      <button type="submit" class="button">Save Changes</button>
+      <button type="submit" class="button" style="margin-top: 24px;">Save Changes</button>
     </form>
   </div>
 </div>
