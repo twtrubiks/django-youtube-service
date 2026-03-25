@@ -69,7 +69,7 @@ def transcode_video(video, original_file_path, file_name_without_ext):
             error_msg = _get_exception_message(e)
             logger.error("影片 %s (ID: %s) 轉檔失敗: %s", video.title, video.id, error_msg)
             video.processing_status = "failed"
-            video.save()
+            video.save(update_fields=["processing_status"])
             raise
         raise
 
@@ -79,7 +79,7 @@ def transcode_video(video, original_file_path, file_name_without_ext):
     with open(output_path, "rb") as f:
         video.video_file.save(processed_file_name, File(f), save=False)
     video.processing_status = "transcoding_complete"
-    video.save()
+    video.save(update_fields=["processing_status", "video_file"])
     return output_path
 
 
@@ -101,7 +101,7 @@ def generate_thumbnail(video, input_file_path, file_name_without_ext):
         error_msg = _get_exception_message(e)
         logger.error("影片 %s (ID: %s) 縮圖產生失敗: %s", video.title, video.id, error_msg)
         video.processing_status = "failed"
-        video.save()
+        video.save(update_fields=["processing_status"])
         raise
 
     elapsed = time.time() - start_time
@@ -110,6 +110,7 @@ def generate_thumbnail(video, input_file_path, file_name_without_ext):
     with open(thumbnail_path, "rb") as f:
         video.thumbnail.save(thumbnail_file_name, File(f), save=False)
     video.processing_status = "thumbnail_generated"
+    video.save(update_fields=["processing_status", "thumbnail"])
     return thumbnail_path
 
 
@@ -131,7 +132,7 @@ def process_video(self, video_id):
             return f"影片 {video_id} 已處理完成，跳過重複處理。"
 
         video.processing_status = "processing"
-        video.save()
+        video.save(update_fields=["processing_status"])
 
         original_file_path = video.video_file.path
         file_name_without_ext = os.path.splitext(os.path.basename(original_file_path))[0]
@@ -148,7 +149,7 @@ def process_video(self, video_id):
         generate_thumbnail(video, output_path, file_name_without_ext)
 
         video.processing_status = "completed"
-        video.save()
+        video.save(update_fields=["processing_status"])
         logger.info("影片 %s (ID: %s) 所有處理完成", video.title, video_id)
         return f"影片 {video.title} (ID: {video_id}) 處理成功。"
 
