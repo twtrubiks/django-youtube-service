@@ -1,10 +1,6 @@
 # 標準庫 imports
 import logging
 
-# 第三方庫 imports
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
-
 # Django imports
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -13,29 +9,17 @@ from django.dispatch import receiver
 from videos.models import Video
 
 from .models import Comment, Subscription
+from .tasks import send_channel_notification
 
 logger = logging.getLogger(__name__)
-
-# 自訂訊號 (雖然我們這裡主要用 post_save，但保留以供未來擴展)
-# new_video_signal = Signal()  # 提供 ['video_instance', 'uploader']
-# new_reply_signal = Signal()  # 提供 ['reply_instance', 'parent_comment_author']
 
 
 @receiver(post_save, sender=Video)
 def video_published_handler(sender, instance, created, **kwargs):
-    """
-    當有新影片被建立且狀態為 public 時，通知所有訂閱該影片上傳者的使用者。
-
-    Args:
-        sender: 發送訊號的模型類別
-        instance: 影片實例
-        created: 是否為新建立的實例
-        **kwargs: 其他關鍵字參數
-    """
+    """當有新影片被建立且狀態為 public 時，通知所有訂閱該影片上傳者的使用者。"""
     if created and instance.visibility == "public":
         uploader = instance.uploader
         subscribers = Subscription.objects.filter(subscribed_to=uploader).select_related("subscriber")
-        channel_layer = get_channel_layer()
 
         for sub_entry in subscribers:
             subscriber_user = sub_entry.subscriber
@@ -52,89 +36,53 @@ def video_published_handler(sender, instance, created, **kwargs):
                         "thumbnail_url": (instance.thumbnail.url if instance.thumbnail else None),
                     },
                 }
-                try:
-                    async_to_sync(channel_layer.group_send)(group_name, message_content)
-                except Exception:
-                    logger.exception("Failed to send new video notification to group %s", group_name)
+                send_channel_notification.delay(group_name, message_content)
 
 
 @receiver(post_save, sender=Comment)
 def new_comment_or_reply_handler(sender, instance, created, **kwargs):
-    """
-    處理新評論和回覆的通知。
+    """處理新評論和回覆的通知。"""
+    if not created:
+        return
 
-    為影片擁有者發送新評論通知，為父評論作者發送新回覆通知。
+    video_owner = instance.video.uploader
 
-    Args:
-        sender: 發送訊號的模型類別
-        instance: 評論實例
-        created: 是否為新建立的實例
-        **kwargs: 其他關鍵字參數
-    """
-    print(
-        f"[signals.py] new_comment_or_reply_handler triggered for "
-        f"Comment ID: {instance.id}. Created: {created}. "
-        f"Parent Comment: {instance.parent_comment}"
-    )
-
-    if created:
-        channel_layer = get_channel_layer()
-        video_owner = instance.video.uploader  # The owner of the video
-
-        if instance.parent_comment:
-            # This is a REPLY
-            logger.debug("Reply signal triggered for Comment ID: %s", instance.id)
-            parent_comment_author = instance.parent_comment.user
-            # Notify parent_comment_author if they are not the one replying and are active
-            if parent_comment_author != instance.user and parent_comment_author.is_active:
-                group_name = f"user_{parent_comment_author.id}_notifications"
-                message_content = {
-                    # This type matches the consumer method name
-                    "type": "send_notification",
-                    # This is the actual payload for the client
-                    "message": {
-                        # This type is for the frontend to distinguish notifications
-                        "type": "new_reply",
-                        "video_title": instance.video.title,
-                        "video_id": instance.video.id,
-                        "replier_name": instance.user.username,
-                        "replier_id": instance.user.id,
-                        "comment_content": (
-                            instance.content[:100] + "..." if len(instance.content) > 100 else instance.content
-                        ),
-                        "parent_comment_id": instance.parent_comment.id,
-                    },
-                }
-                try:
-                    async_to_sync(channel_layer.group_send)(group_name, message_content)
-                except Exception:
-                    logger.exception("Failed to send reply notification to group %s", group_name)
-
-        else:
-            # This is a new TOP-LEVEL COMMENT
-            logger.debug("New top-level comment signal triggered for Comment ID: %s", instance.id)
-            # Notify the video owner if they are not the one commenting and are active
-            if video_owner != instance.user and video_owner.is_active:
-                group_name = f"user_{video_owner.id}_notifications"
-                message_content = {
-                    # This type matches the consumer method name
-                    "type": "send_notification",
-                    # This is the actual payload for the client
-                    "message": {
-                        # New notification type for frontend
-                        "type": "new_comment_on_video",
-                        "video_title": instance.video.title,
-                        "video_id": instance.video.id,
-                        # Add the ID of the new comment
-                        "comment_id": instance.id,
-                        "commenter_name": instance.user.username,
-                        "commenter_id": instance.user.id,
-                        "comment_content": (
-                            instance.content[:100] + "..." if len(instance.content) > 100 else instance.content
-                        ),
-                    },
-                }
-                try:
-                    async_to_sync(channel_layer.group_send)(group_name, message_content)
-                except Exception:
-                    logger.exception("Failed to send comment notification to group %s", group_name)
+    if instance.parent_comment:
+        logger.debug("Reply signal triggered for Comment ID: %s", instance.id)
+        parent_comment_author = instance.parent_comment.user
+        if parent_comment_author != instance.user and parent_comment_author.is_active:
+            group_name = f"user_{parent_comment_author.id}_notifications"
+            message_content = {
+                "type": "send_notification",
+                "message": {
+                    "type": "new_reply",
+                    "video_title": instance.video.title,
+                    "video_id": instance.video.id,
+                    "replier_name": instance.user.username,
+                    "replier_id": instance.user.id,
+                    "comment_content": (
+                        instance.content[:100] + "..." if len(instance.content) > 100 else instance.content
+                    ),
+                    "parent_comment_id": instance.parent_comment.id,
+                },
+            }
+            send_channel_notification.delay(group_name, message_content)
+    else:
+        logger.debug("New top-level comment signal triggered for Comment ID: %s", instance.id)
+        if video_owner != instance.user and video_owner.is_active:
+            group_name = f"user_{video_owner.id}_notifications"
+            message_content = {
+                "type": "send_notification",
+                "message": {
+                    "type": "new_comment_on_video",
+                    "video_title": instance.video.title,
+                    "video_id": instance.video.id,
+                    "comment_id": instance.id,
+                    "commenter_name": instance.user.username,
+                    "commenter_id": instance.user.id,
+                    "comment_content": (
+                        instance.content[:100] + "..." if len(instance.content) > 100 else instance.content
+                    ),
+                },
+            }
+            send_channel_notification.delay(group_name, message_content)

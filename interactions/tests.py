@@ -535,33 +535,24 @@ class SignalHandlerTests(TestCase):
         dummy_file = SimpleUploadedFile(f"{title}.mp4", TEST_VIDEO_CONTENT, TEST_VIDEO_CONTENT_TYPE)
         return Video.objects.create(title=title, uploader=self.uploader, video_file=dummy_file, visibility=visibility)
 
-    @patch("interactions.signals.get_channel_layer")
-    def test_video_published_sends_notification(self, mock_get_channel_layer):
-        mock_channel_layer = MagicMock()
-        mock_get_channel_layer.return_value = mock_channel_layer
+    @patch("interactions.signals.send_channel_notification.delay")
+    def test_video_published_sends_notification(self, mock_send):
         self._create_video("New Public Video")
-        # signal uses async_to_sync which wraps group_send; just verify no crash
-        self.assertTrue(True)
+        mock_send.assert_called()
 
-    @patch("interactions.signals.get_channel_layer")
-    def test_private_video_no_notification(self, mock_get_channel_layer):
-        mock_channel_layer = MagicMock()
-        mock_get_channel_layer.return_value = mock_channel_layer
+    @patch("interactions.signals.send_channel_notification.delay")
+    def test_private_video_no_notification(self, mock_send):
         self._create_video("Private Video", visibility="private")
-        mock_channel_layer.group_send.assert_not_called()
+        mock_send.assert_not_called()
 
-    @patch("interactions.signals.get_channel_layer")
-    def test_comment_signal_does_not_crash(self, mock_get_channel_layer):
-        mock_channel_layer = MagicMock()
-        mock_get_channel_layer.return_value = mock_channel_layer
+    @patch("interactions.signals.send_channel_notification.delay")
+    def test_comment_signal_does_not_crash(self, mock_send):
         video = self._create_video("Video for Comment")
         comment = Comment.objects.create(video=video, user=self.commenter, content="Nice video!")
         self.assertIsNotNone(comment.id)
 
-    @patch("interactions.signals.get_channel_layer")
-    def test_reply_signal_does_not_crash(self, mock_get_channel_layer):
-        mock_channel_layer = MagicMock()
-        mock_get_channel_layer.return_value = mock_channel_layer
+    @patch("interactions.signals.send_channel_notification.delay")
+    def test_reply_signal_does_not_crash(self, mock_send):
         video = self._create_video("Video for Reply")
         parent = Comment.objects.create(video=video, user=self.uploader, content="Original comment")
         reply = Comment.objects.create(video=video, user=self.commenter, content="Reply!", parent_comment=parent)
