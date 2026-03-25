@@ -33,9 +33,9 @@ class Video(models.Model):
     video_file = models.FileField(upload_to="videos/")
     thumbnail = models.ImageField(upload_to="thumbnails/", null=True, blank=True)
     uploader = models.ForeignKey(User, on_delete=models.CASCADE, related_name="videos")
-    upload_date = models.DateTimeField(default=timezone.now)
+    upload_date = models.DateTimeField(default=timezone.now, db_index=True)
     views_count = models.IntegerField(default=0)
-    visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default="public")
+    visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default="public", db_index=True)
     processing_status = models.CharField(
         max_length=20,
         choices=[

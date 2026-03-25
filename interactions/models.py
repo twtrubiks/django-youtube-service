@@ -13,7 +13,7 @@ class Comment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="comments")
     parent_comment = models.ForeignKey("self", null=True, blank=True, on_delete=models.CASCADE, related_name="replies")
     content = models.TextField()
-    timestamp = models.DateTimeField(default=timezone.now)
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True)
 
     def __str__(self):
         if self.parent_comment:
@@ -79,7 +79,7 @@ class Notification(models.Model):
     message = models.TextField()
     # Optional link to content
     link = models.URLField(max_length=200, blank=True, null=True)
-    is_read = models.BooleanField(default=False)
+    is_read = models.BooleanField(default=False, db_index=True)
     timestamp = models.DateTimeField(default=timezone.now)
 
     # Optional: Add a type for different kinds of notifications
