@@ -2,6 +2,8 @@
 // 例如: const currentUserId = JSON.parse(document.getElementById('current-user-id').textContent);
 // 或者直接在腳本中嵌入，但前者更安全
 
+var wsReconnectAttempts = 0;
+
 function initializeNotificationWebSocket(userId) {
     if (!userId) {
         console.log("User ID not provided, WebSocket for notifications not started.");
@@ -15,6 +17,7 @@ function initializeNotificationWebSocket(userId) {
 
     notificationSocket.onopen = function(e) {
         console.log("Notification WebSocket connection established.");
+        wsReconnectAttempts = 0;
     };
 
     notificationSocket.onmessage = function(e) {
@@ -49,14 +52,17 @@ function initializeNotificationWebSocket(userId) {
     };
 
     notificationSocket.onclose = function(e) {
-        console.error('Notification WebSocket closed unexpectedly. Code:', e.code, 'Reason:', e.reason);
-        // 可以嘗試重新連線
-        // setTimeout(() => initializeNotificationWebSocket(userId), 5000); // 5秒後重試
+        console.error('Notification WebSocket closed. Code:', e.code);
+        if (e.code !== 1000) {
+            var delay = Math.min(1000 * Math.pow(2, wsReconnectAttempts), 30000);
+            wsReconnectAttempts++;
+            console.log('Reconnecting in ' + delay + 'ms (attempt ' + wsReconnectAttempts + ')');
+            setTimeout(function() { initializeNotificationWebSocket(userId); }, delay);
+        }
     };
 
     notificationSocket.onerror = function(err) {
-        console.error('Notification WebSocket error:', err.message, 'Closing socket');
-        notificationSocket.close();
+        console.error('Notification WebSocket error:', err.message);
     };
 
 }
