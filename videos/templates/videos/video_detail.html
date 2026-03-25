@@ -147,10 +147,9 @@
         {% endfor %}
         </div>
 
-        <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.18"></script>
-
-        <script>
         {% if video.hls_path %}
+        <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.18"></script>
+        <script>
         document.addEventListener('DOMContentLoaded', function() {
             const video = document.getElementById('video-player');
             const hlsUrl = "{% url 'videos:hls_playlist' video.id %}";
@@ -198,8 +197,8 @@
                 video.src = "{{ video.video_file.url }}";
             }
         });
-        {% endif %}
         </script>
+        {% endif %}
 
         <script>
         const csrftoken = window.csrftoken;
