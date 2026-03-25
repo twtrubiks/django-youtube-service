@@ -16,3 +16,5 @@ opentelemetry-sdk==1.33.0
 opentelemetry-instrumentation-django==0.54b0
 opentelemetry-instrumentation-celery==0.54b0
 opentelemetry-exporter-otlp-proto-grpc==1.33.0
+django-storages[s3]==1.14.4
+boto3==1.38.0
