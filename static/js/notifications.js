@@ -243,31 +243,6 @@ function addNotificationToDropdown(notification, prepend = true) { // notificati
             listItem.classList.add('unread');
         }
 
-        // Click listener for the whole item
-        listItem.addEventListener('click', function(event) {
-            const targetIsLink = event.target.classList.contains('notification-link') || event.target.closest('.notification-link');
-
-            // If it's an unread notification, mark it as read.
-            if (this.classList.contains('unread')) {
-                markNotificationAsReadAPI(this.dataset.notificationId, this);
-            }
-
-            // If the click was not on the "查看詳情" link, and a link exists, navigate.
-            // The link itself will handle its own navigation if clicked directly.
-            if (!targetIsLink) {
-                const linkElement = this.querySelector('.notification-link');
-                if (linkElement && linkElement.href && linkElement.href !== '#') {
-                     // Check if it's an absolute URL or needs prefixing
-                    if (linkElement.getAttribute('href').startsWith('/')) {
-                        window.location.href = linkElement.getAttribute('href'); // Navigate in the same tab for internal links
-                    } else {
-                        window.open(linkElement.getAttribute('href'), '_blank'); // Open external links in new tab
-                    }
-                }
-            }
-            // If it was the link, the browser handles it. If no link, nothing more to do.
-        });
-
 
         if (prepend) {
             dropdownList.prepend(listItem);
@@ -434,6 +409,31 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     } else {
         console.error("CRITICAL: Notification bell icon (ID: notification-bell-icon) not found in DOM at DOMContentLoaded. Click events will not work.");
+    }
+
+    // 事件委派：通知項目點擊處理
+    var dropdownList = document.getElementById('notification-dropdown-list');
+    if (dropdownList) {
+        dropdownList.addEventListener('click', function(event) {
+            var listItem = event.target.closest('.notification-item');
+            if (!listItem) return;
+
+            if (listItem.classList.contains('unread')) {
+                markNotificationAsReadAPI(listItem.dataset.notificationId, listItem);
+            }
+
+            var targetIsLink = event.target.classList.contains('notification-link') || event.target.closest('.notification-link');
+            if (!targetIsLink) {
+                var linkElement = listItem.querySelector('.notification-link');
+                if (linkElement && linkElement.href && linkElement.href !== '#') {
+                    if (linkElement.getAttribute('href').startsWith('/')) {
+                        window.location.href = linkElement.getAttribute('href');
+                    } else {
+                        window.open(linkElement.getAttribute('href'), '_blank');
+                    }
+                }
+            }
+        });
     }
 
     // 點擊頁面其他地方關閉下拉
