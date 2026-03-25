@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container">
     <div class="video-player-container">
-        {% if video.video_file %}
+        {% if video.processing_status == 'completed' and video.video_file %}
         <video id="video-player" controls style="width: 100%; height: auto;">
             {% if video.hls_path %}
                 <!-- HLS 播放清單將通過 JavaScript 載入 -->
@@ -14,6 +14,33 @@
             {% endif %}
             Your browser does not support the video tag.
         </video>
+        {% elif video.processing_status == 'failed' %}
+        <div style="width:100%; aspect-ratio: 16/9; background-color: #1a1a1a; display:flex; align-items:center; justify-content:center; color:#fff; flex-direction: column; gap: 12px;">
+            <span style="font-size: 48px;">&#9888;</span>
+            <span style="font-size: 18px;">影片處理失敗，請重新上傳</span>
+            <span style="font-size: 18px;">Video processing failed. Please re-upload.</span>
+        </div>
+        {% elif video.video_file %}
+        <div id="processing-banner" style="width:100%; aspect-ratio: 16/9; background-color: #1a1a1a; display:flex; align-items:center; justify-content:center; color:#fff; flex-direction: column; gap: 12px;">
+            <div class="processing-spinner"></div>
+            <span style="font-size: 18px;">影片處理中，請稍候...</span>
+            <span style="font-size: 18px;">Video is being processed. Please wait...</span>
+            <span style="font-size: 14px; color: #aaa;">頁面將自動重新整理 / Page will auto-refresh</span>
+        </div>
+        <style>
+            .processing-spinner {
+                width: 48px; height: 48px;
+                border: 4px solid rgba(255,255,255,0.2);
+                border-top-color: #fff;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin { to { transform: rotate(360deg); } }
+        </style>
+        <script>
+            // 每 15 秒自動重新整理，直到影片處理完成
+            setTimeout(function() { location.reload(); }, 15000);
+        </script>
         {% else %}
         <div style="width:100%; aspect-ratio: 16/9; background-color: #000; display:flex; align-items:center; justify-content:center; color:#fff;">Video file not available.</div>
         {% endif %}
