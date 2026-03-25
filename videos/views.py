@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 
 # 第三方庫 imports
 from taggit.models import Tag
@@ -175,38 +176,28 @@ def videos_by_tag(request, tag_slug):
 
 @login_required
 def add_category(request):
-    # Get 'next' from GET param for initial load or if it's in POST URL query string
-    next_val_from_get = request.GET.get("next")
+    allowed_hosts = {request.get_host()}
+    raw_next = (request.POST.get("next") or request.GET.get("next") or "").strip()
+    safe_next = raw_next if url_has_allowed_host_and_scheme(raw_next, allowed_hosts=allowed_hosts) else ""
 
     if request.method == "POST":
         form = CategoryForm(request.POST)
-        next_val_from_post_hidden_field = request.POST.get("next")
 
         if form.is_valid():
             form.save()
             messages.success(request, "Category added successfully!")
-            # Prioritize 'next' from the hidden field for redirect
-            if next_val_from_post_hidden_field and next_val_from_post_hidden_field.strip():
-                return redirect(next_val_from_post_hidden_field)
-            # Fallback to 'next' from GET if hidden field was missing/empty
-            elif next_val_from_get and next_val_from_get.strip():
-                return redirect(next_val_from_get)
-            else:
-                return redirect(reverse("videos:upload_video"))  # Ultimate fallback
-        else:  # Form is invalid
+            return redirect(safe_next or reverse("videos:upload_video"))
+        else:
             messages.error(request, "Error adding category. Please check the form.")
-            # For re-rendering, use the 'next' value that was intended for this submission attempt
-            # This would be from the hidden field, or if that's missing, from the GET param.
-            context_next_url = next_val_from_post_hidden_field or next_val_from_get
-            context = {"form": form, "next_target_url_for_template": context_next_url}
+            context = {"form": form, "next_target_url_for_template": safe_next}
             return render(request, "videos/add_category.html", context)
-    else:  # GET request
+    else:
         form = CategoryForm()
-        categories = Category.objects.all().order_by("name")  # 獲取所有分類
+        categories = Category.objects.all().order_by("name")
         context = {
             "form": form,
-            "next_target_url_for_template": next_val_from_get,  # Use 'next' from GET for initial form
-            "categories": categories,  # 將分類列表添加到上下文中
+            "next_target_url_for_template": safe_next,
+            "categories": categories,
         }
         return render(request, "videos/add_category.html", context)
 
