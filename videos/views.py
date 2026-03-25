@@ -145,6 +145,19 @@ def search_videos(request):
     return render(request, "videos/search_results.html", {"videos": page_obj, "page_obj": page_obj, "query": query})
 
 
+def search_suggest(request):
+    """回傳搜尋建議（最多 5 筆影片標題）。"""
+    query = request.GET.get("q", "").strip()
+    if len(query) < 2:
+        return JsonResponse({"suggestions": []})
+    titles = list(
+        Video.objects.filter(title__icontains=query, visibility="public")
+        .values_list("title", flat=True)
+        .order_by("-upload_date")[:5]
+    )
+    return JsonResponse({"suggestions": titles})
+
+
 @login_required
 def edit_video(request, video_id):
     video = get_object_or_404(Video, pk=video_id)

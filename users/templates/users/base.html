@@ -29,11 +29,12 @@
                 StreamCraft
             </a>
         </div>
-        <form method="GET" action="{% url 'videos:search_videos' %}" class="header-search-form">
-            <input type="text" name="query" placeholder="Search videos..." value="{{ request.GET.query }}">
+        <form method="GET" action="{% url 'videos:search_videos' %}" class="header-search-form" autocomplete="off">
+            <input type="text" name="query" placeholder="Search videos..." value="{{ request.GET.query }}" id="search-input" aria-autocomplete="list" aria-controls="search-suggestions">
             <button type="submit" aria-label="Search">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
             </button>
+            <ul id="search-suggestions" class="search-suggestions" role="listbox" style="display:none;"></ul>
         </form>
         <nav class="header-nav-links">
             <ul>
@@ -121,6 +122,47 @@
             setTimeout(function() { toast.remove(); }, 300);
         }, 4000);
     }
+
+    // Search autocomplete
+    (function() {
+        var input = document.getElementById('search-input');
+        var suggestions = document.getElementById('search-suggestions');
+        if (!input || !suggestions) return;
+        var timer = null;
+
+        input.addEventListener('input', function() {
+            clearTimeout(timer);
+            var q = input.value.trim();
+            if (q.length < 2) { suggestions.style.display = 'none'; return; }
+            timer = setTimeout(function() {
+                fetch('{% url "videos:search_suggest" %}?q=' + encodeURIComponent(q))
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        suggestions.innerHTML = '';
+                        if (!data.suggestions || !data.suggestions.length) { suggestions.style.display = 'none'; return; }
+                        data.suggestions.forEach(function(title) {
+                            var li = document.createElement('li');
+                            li.textContent = title;
+                            li.setAttribute('role', 'option');
+                            li.addEventListener('click', function() {
+                                input.value = title;
+                                suggestions.style.display = 'none';
+                                input.closest('form').submit();
+                            });
+                            suggestions.appendChild(li);
+                        });
+                        suggestions.style.display = 'block';
+                    })
+                    .catch(function() { suggestions.style.display = 'none'; });
+            }, 300);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+                suggestions.style.display = 'none';
+            }
+        });
+    })();
     </script>
     {% if user.is_authenticated %}
     <script src="{% static 'js/notifications.js' %}"></script>

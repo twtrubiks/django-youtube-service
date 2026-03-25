@@ -13,6 +13,7 @@ urlpatterns = [
     # or it could be the root of the site later.
     path("", views.home, name="home"),  # Changed name to 'home'
     path("search/", views.search_videos, name="search_videos"),
+    path("search/suggest/", views.search_suggest, name="search_suggest"),
     path("category/add/", views.add_category, name="add_category"),  # Moved up
     path("category/<slug:category_slug>/", views.videos_by_category, name="videos_by_category"),
     path("category/<int:category_id>/delete/", views.delete_category, name="delete_category"),
