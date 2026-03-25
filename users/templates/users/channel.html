@@ -49,29 +49,11 @@
   {% if user_videos %}
   <div class="video-grid">
       {% for video in user_videos %}
-      <div class="video-item">
-          <a href="{% url 'videos:video_detail' video.id %}">
-              <div class="video-thumbnail">
-                  {% if video.thumbnail %}
-                      <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail">
-                  {% else %}
-                      <div class="video-thumbnail-placeholder">No Thumbnail</div>
-                  {% endif %}
-              </div>
-          </a>
-          <div class="video-info">
-              <h3 class="video-title">
-                  <a href="{% url 'videos:video_detail' video.id %}">{{ video.title }}</a>
-              </h3>
-              <div class="video-views">
-                  {{ video.views_count }} views &bull; {{ video.upload_date|timesince }} ago
-              </div>
-          </div>
-      </div>
+          {% include "videos/_video_card.html" with video=video show_uploader=False %}
       {% endfor %}
   </div>
   {% else %}
-    <p style="color: var(--text-secondary); text-align: center; padding: 48px 0;">{{ profile_owner.username }} has not uploaded any videos yet.</p>
+    <p class="empty-state">{{ profile_owner.username }} has not uploaded any videos yet.</p>
   {% endif %}
 
 {% endblock content %}
@@ -88,21 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const subscribeButton = document.getElementById('subscribe-button');
             const subscriberCountSpan = document.getElementById('subscriber-count');
 
-            function getCookie(name) {
-                let cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    const cookies = document.cookie.split(';');
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
-                        }
-                    }
-                }
-                return cookieValue;
-            }
-            const csrftoken = getCookie('csrftoken');
+            const csrftoken = window.csrftoken;
 
             fetch(subscriptionForm.action, {
                 method: 'POST',

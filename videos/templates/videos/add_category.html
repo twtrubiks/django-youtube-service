@@ -28,7 +28,7 @@
             {% for category in categories %}
                 <div class="list-group-item">
                     {{ category.name }}
-                    <a href="{% url 'videos:delete_category' category.id %}" class="btn-outline-danger">
+                    <a href="{% url 'videos:delete_category' category.id %}" class="button button-outline-danger">
                         Delete
                     </a>
                 </div>

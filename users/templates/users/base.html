@@ -111,22 +111,23 @@
     document.addEventListener('DOMContentLoaded', function() {
         const userMenuTrigger = document.getElementById('user-menu-trigger');
         const userDropdown = document.getElementById('user-dropdown');
-        const notificationBell = document.getElementById('notification-bell-icon');
-        const notificationDropdown = document.getElementById('notification-dropdown');
 
         if (userMenuTrigger && userDropdown) {
             const userMenuContainer = userMenuTrigger.closest('.user-menu-container');
 
             userMenuTrigger.addEventListener('click', function(event) {
                 event.stopPropagation();
-                const isUserDropdownVisible = userDropdown.style.display === 'block';
+                const isVisible = userDropdown.style.display === 'block';
 
+                // 關閉通知 dropdown
+                const notificationDropdown = document.getElementById('notification-dropdown');
+                const notificationBell = document.getElementById('notification-bell-icon');
                 if (notificationDropdown && notificationDropdown.style.display === 'block') {
                     notificationDropdown.style.display = 'none';
                     if (notificationBell) notificationBell.classList.remove('open');
                 }
 
-                if (isUserDropdownVisible) {
+                if (isVisible) {
                     userDropdown.style.display = 'none';
                     userMenuTrigger.classList.remove('open');
                     if (userMenuContainer) userMenuContainer.classList.remove('open');
@@ -136,51 +137,17 @@
                     if (userMenuContainer) userMenuContainer.classList.add('open');
                 }
             });
-        }
 
-        if (notificationBell && notificationDropdown) {
-            notificationBell.addEventListener('click', function(event) {
-                event.stopPropagation();
-                const isNotificationDropdownVisible = notificationDropdown.style.display === 'block';
-
-                if (userDropdown && userDropdown.style.display === 'block') {
-                    userDropdown.style.display = 'none';
-                    if (userMenuTrigger) userMenuTrigger.classList.remove('open');
-                    const userMenuContainer = userMenuTrigger ? userMenuTrigger.closest('.user-menu-container') : null;
-                    if (userMenuContainer) userMenuContainer.classList.remove('open');
-                }
-
-                if (isNotificationDropdownVisible) {
-                    notificationDropdown.style.display = 'none';
-                    notificationBell.classList.remove('open');
-                } else {
-                    notificationDropdown.style.display = 'block';
-                    notificationBell.classList.add('open');
-                }
-
-                if (!isNotificationDropdownVisible && notificationDropdown.style.display === 'block') {
-                    const indicatorDot = document.getElementById('notification-indicator-dot');
-                    if (indicatorDot) indicatorDot.style.display = 'none';
+            document.addEventListener('click', function(event) {
+                if (userDropdown.style.display === 'block') {
+                    if (!userMenuTrigger.contains(event.target) && !userDropdown.contains(event.target)) {
+                        userDropdown.style.display = 'none';
+                        userMenuTrigger.classList.remove('open');
+                        if (userMenuContainer) userMenuContainer.classList.remove('open');
+                    }
                 }
             });
         }
-
-        document.addEventListener('click', function(event) {
-            if (userDropdown && userDropdown.style.display === 'block') {
-                if (userMenuTrigger && !userMenuTrigger.contains(event.target) && !userDropdown.contains(event.target)) {
-                    userDropdown.style.display = 'none';
-                    userMenuTrigger.classList.remove('open');
-                    const userMenuContainer = userMenuTrigger.closest('.user-menu-container');
-                    if (userMenuContainer) userMenuContainer.classList.remove('open');
-                }
-            }
-            if (notificationDropdown && notificationDropdown.style.display === 'block') {
-                if (notificationBell && !notificationBell.contains(event.target) && !notificationDropdown.contains(event.target)) {
-                    notificationDropdown.style.display = 'none';
-                    notificationBell.classList.remove('open');
-                }
-            }
-        });
     });
     </script>
     {% endblock %}

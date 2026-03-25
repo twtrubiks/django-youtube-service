@@ -8,32 +8,11 @@
     {% if videos %}
     <div class="video-grid">
         {% for video in videos %}
-        <div class="video-item">
-            <a href="{% url 'videos:video_detail' video.id %}">
-                <div class="video-thumbnail">
-                    {% if video.thumbnail %}
-                        <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail">
-                    {% else %}
-                        <div class="video-thumbnail-placeholder">No Thumbnail</div>
-                    {% endif %}
-                </div>
-            </a>
-            <div class="video-info">
-                <h3 class="video-title">
-                    <a href="{% url 'videos:video_detail' video.id %}">{{ video.title }}</a>
-                </h3>
-                <div class="video-uploader">
-                    <a href="{% url 'users:channel' video.uploader.username %}">{{ video.uploader.username }}</a>
-                </div>
-                <div class="video-views">
-                    {{ video.views_count }} views &bull; {{ video.upload_date|timesince }} ago
-                </div>
-            </div>
-        </div>
+            {% include "videos/_video_card.html" with video=video show_uploader=True %}
         {% endfor %}
     </div>
     {% else %}
-        <p style="color: var(--text-secondary); text-align: center; padding: 48px 0;">No videos found. Upload some to get started!</p>
+        <p class="empty-state">No videos found. Upload some to get started!</p>
     {% endif %}
     {% include "videos/_pagination.html" %}
 </div>

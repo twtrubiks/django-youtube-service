@@ -342,62 +342,13 @@ button:active, input[type="submit"]:active, .button:active {
     font-size: 12px;
 }
 
-/* Django btn classes used in some templates */
-.btn {
-    padding: 10px 20px;
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    font-family: 'Poppins', sans-serif;
-    transition: all var(--transition);
-    display: inline-flex;
-    align-items: center;
-    text-decoration: none;
-    gap: 6px;
-}
-
-.btn-danger {
-    background-color: var(--error);
-    color: white;
-}
-
-.btn-danger:hover {
-    background-color: #e53935;
-    color: white;
-}
-
-.btn-secondary {
-    background-color: var(--surface-2);
-    color: var(--text);
-    border: 1px solid var(--border);
-}
-
-.btn-secondary:hover {
-    background-color: var(--surface-hover);
-    color: var(--text);
-}
-
-.btn-sm {
-    padding: 6px 12px;
-    font-size: 12px;
-}
-
-.btn-outline-danger {
+.button-outline-danger {
     background-color: transparent;
     color: var(--error);
     border: 1px solid var(--error);
-    padding: 6px 12px;
-    font-size: 12px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-family: 'Poppins', sans-serif;
-    transition: all var(--transition);
-    text-decoration: none;
 }
 
-.btn-outline-danger:hover {
+.button-outline-danger:hover {
     background-color: var(--error);
     color: white;
 }
@@ -1618,34 +1569,47 @@ hr {
 
 @media (max-width: 768px) {
     header {
-        padding: 0 12px;
+        padding: 0 8px;
         height: 56px;
+        gap: 4px;
     }
 
     header h1 {
-        font-size: 18px;
-        margin-right: 12px;
+        font-size: 0;
+        margin-right: 4px;
+        min-width: auto;
+    }
+
+    header h1 .logo-icon {
+        width: 28px;
+        height: 28px;
     }
 
     .header-search-form {
         max-width: 100%;
-        margin: 0 8px;
+        margin: 0 4px;
+        flex: 1 1 120px;
+        min-width: 80px;
     }
 
-    .header-nav-links {
-        margin-left: 8px;
-    }
-
-    .header-nav-links ul {
-        gap: 2px;
-    }
-
-    .header-nav-links ul li a {
-        padding: 8px;
+    .header-search-form input[type="text"] {
+        padding: 6px 10px;
         font-size: 13px;
     }
 
-    /* Hide text labels on mobile, show only icons */
+    .header-nav-links {
+        margin-left: 4px;
+    }
+
+    .header-nav-links ul {
+        gap: 0;
+    }
+
+    .header-nav-links ul li a {
+        padding: 6px;
+        font-size: 13px;
+    }
+
     .header-nav-links ul li a .nav-text {
         display: none;
     }
@@ -1685,8 +1649,13 @@ hr {
     }
 
     #notification-dropdown {
-        width: calc(100vw - 24px);
-        right: -60px;
+        width: calc(100vw - 16px);
+        right: 0;
+        left: auto;
+        position: fixed;
+        left: 8px;
+        right: 8px;
+        width: auto;
     }
 }
 
@@ -1716,8 +1685,7 @@ hr {
 }
 
 button:focus-visible,
-.button:focus-visible,
-.btn:focus-visible {
+.button:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
@@ -1734,4 +1702,11 @@ button:focus-visible,
 .pagination-info {
     color: var(--text-secondary);
     font-size: 14px;
+}
+
+/* Empty state */
+.empty-state {
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 48px 0;
 }
