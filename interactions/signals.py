@@ -1,5 +1,5 @@
 # 標準庫 imports
-import json
+import logging
 
 # 第三方庫 imports
 from asgiref.sync import async_to_sync
@@ -13,6 +13,8 @@ from django.dispatch import receiver
 from videos.models import Video
 
 from .models import Comment, Subscription
+
+logger = logging.getLogger(__name__)
 
 # 自訂訊號 (雖然我們這裡主要用 post_save，但保留以供未來擴展)
 # new_video_signal = Signal()  # 提供 ['video_instance', 'uploader']
@@ -37,13 +39,11 @@ def video_published_handler(sender, instance, created, **kwargs):
 
         for sub_entry in subscribers:
             subscriber_user = sub_entry.subscriber
-            if subscriber_user.is_active:  # 確保使用者是活躍的
+            if subscriber_user.is_active:
                 group_name = f"user_{subscriber_user.id}_notifications"
                 message_content = {
-                    # 這個 type 對應 consumer 中的方法名
                     "type": "send_notification",
                     "message": {
-                        # 這是傳給前端的通知類型
                         "type": "new_video",
                         "video_title": instance.title,
                         "video_id": instance.id,
@@ -52,8 +52,10 @@ def video_published_handler(sender, instance, created, **kwargs):
                         "thumbnail_url": (instance.thumbnail.url if instance.thumbnail else None),
                     },
                 }
-                async_to_sync(channel_layer.group_send)(group_name, message_content)
-                print(f"Sent new video notification to group: {group_name} for video: {instance.title}")
+                try:
+                    async_to_sync(channel_layer.group_send)(group_name, message_content)
+                except Exception:
+                    logger.exception("Failed to send new video notification to group %s", group_name)
 
 
 @receiver(post_save, sender=Comment)
@@ -103,12 +105,10 @@ def new_comment_or_reply_handler(sender, instance, created, **kwargs):
                         "parent_comment_id": instance.parent_comment.id,
                     },
                 }
-                print(
-                    f"[signals.py] Attempting to send NEW_REPLY notification "
-                    f"to group: {group_name}, message: {json.dumps(message_content)}"
-                )
-                async_to_sync(channel_layer.group_send)(group_name, message_content)
-                print(f"[signals.py] Successfully called group_send for NEW_REPLY to group: {group_name}")
+                try:
+                    async_to_sync(channel_layer.group_send)(group_name, message_content)
+                except Exception:
+                    logger.exception("Failed to send reply notification to group %s", group_name)
 
         else:
             # This is a new TOP-LEVEL COMMENT
@@ -134,10 +134,7 @@ def new_comment_or_reply_handler(sender, instance, created, **kwargs):
                         ),
                     },
                 }
-                print(
-                    f"[signals.py] Attempting to send NEW_COMMENT_ON_VIDEO "
-                    f"notification to group: {group_name}, "
-                    f"message: {json.dumps(message_content)}"
-                )
-                async_to_sync(channel_layer.group_send)(group_name, message_content)
-                print(f"[signals.py] Successfully called group_send for NEW_COMMENT_ON_VIDEO to group: {group_name}")
+                try:
+                    async_to_sync(channel_layer.group_send)(group_name, message_content)
+                except Exception:
+                    logger.exception("Failed to send comment notification to group %s", group_name)
