@@ -188,6 +188,17 @@ PostgreSQL 18 (可選，預設使用 SQLite)
 
 FFmpeg (影片處理)
 
+#### 環境變數設定
+
+本機開發時，Django 預設連線 `localhost` 的 PostgreSQL 和 Redis。若需指定其他 host，可設定環境變數 `DB_HOST` 和 `REDIS_HOST`。
+
+| 環境變數 | 預設值 | 說明 |
+|----------|--------|------|
+| `DB_HOST` | `localhost` | PostgreSQL 主機位址 |
+| `REDIS_HOST` | `localhost` | Redis 主機位址 |
+
+Docker 部署時會透過 `docker-compose.yml` 自動設定，無需手動配置。
+
 #### 安裝步驟
 
 ```bash

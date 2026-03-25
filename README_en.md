@@ -185,6 +185,17 @@ docker-compose up --build
 * PostgreSQL (optional, defaults to SQLite)
 * FFmpeg (for video processing)
 
+#### Environment Variables
+
+When developing locally, Django connects to PostgreSQL and Redis on `localhost` by default. You can override the host by setting the `DB_HOST` and `REDIS_HOST` environment variables.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DB_HOST` | `localhost` | PostgreSQL host address |
+| `REDIS_HOST` | `localhost` | Redis host address |
+
+When deploying with Docker, these are automatically configured via `docker-compose.yml` — no manual setup needed.
+
 #### Installation Steps
 
 ```bash

@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -99,7 +100,7 @@ DATABASES = {
         "NAME": "postgres",
         "USER": "myuser",
         "PASSWORD": "password123",
-        "HOST": "django-postgres",
+        "HOST": os.environ.get("DB_HOST", "localhost"),
         "PORT": 5432,
     }
 }
@@ -114,7 +115,7 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("redis-django", 6379)],
+            "hosts": [(os.environ.get("REDIS_HOST", "localhost"), 6379)],
         },
     }
 }
@@ -168,8 +169,9 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Celery Configuration Options
-CELERY_BROKER_URL = "redis://redis-django:6379/0"  # 使用 Redis 作為 broker，0 是 Redis 的資料庫編號
-CELERY_RESULT_BACKEND = "redis://redis-django:6379/0"  # 儲存任務結果
+_REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+CELERY_BROKER_URL = f"redis://{_REDIS_HOST}:6379/0"  # 使用 Redis 作為 broker，0 是 Redis 的資料庫編號
+CELERY_RESULT_BACKEND = f"redis://{_REDIS_HOST}:6379/0"  # 儲存任務結果
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"

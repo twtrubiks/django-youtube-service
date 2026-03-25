@@ -2,6 +2,9 @@
 x-base-app-setting: &x-base-app
   image: youtube-service-app
   build: .
+  environment:
+    - DB_HOST=django-postgres
+    - REDIS_HOST=redis-django
   volumes:
     - .:/youtube_service
 
