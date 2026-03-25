@@ -1,4 +1,5 @@
 # 標準庫 imports
+import logging
 import os
 
 # Django imports
@@ -22,6 +23,8 @@ from interactions.models import Comment, LikeDislike
 from .forms import CategoryForm, VideoUploadForm
 from .models import Category, Video
 from .tasks import process_video
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -267,16 +270,17 @@ def delete_video(request, video_id):
         try:
             if os.path.exists(video_path):
                 os.remove(video_path)
-        except OSError as e:
-            messages.warning(request, f"成功從資料庫刪除影片 '{video_title}' 的記錄，但刪除影片檔案時發生錯誤: {e}")
+        except OSError:
+            logger.exception("刪除影片檔案失敗: %s", video_path)
+            messages.warning(request, f"成功從資料庫刪除影片 '{video_title}' 的記錄，但刪除影片檔案時發生錯誤。")
 
-        # Attempt to delete the thumbnail file
         if thumbnail_path:
             try:
                 if os.path.exists(thumbnail_path):
                     os.remove(thumbnail_path)
-            except OSError as e:
-                messages.warning(request, f"刪除縮圖檔案時發生錯誤: {e}")
+            except OSError:
+                logger.exception("刪除縮圖檔案失敗: %s", thumbnail_path)
+                messages.warning(request, "刪除縮圖檔案時發生錯誤。")
 
         messages.success(request, f"影片 '{video_title}' 已成功刪除。")
         # Redirect to user's channel or home page
@@ -284,7 +288,7 @@ def delete_video(request, video_id):
         # If not, redirect to 'videos:home'
         try:
             return redirect(reverse("users:channel", args=[request.user.username]))
-        except:  # noqa
+        except Exception:
             return redirect(reverse("videos:home"))
 
     # If GET request, show confirmation page
