@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
 
 from .models import UserProfile
 
@@ -20,6 +21,7 @@ class UserRegistrationForm(forms.ModelForm):
         cd = self.cleaned_data
         if cd["password"] != cd["password2"]:
             raise forms.ValidationError("Passwords don't match.")
+        validate_password(cd["password2"], self.instance)
         return cd["password2"]
 
 

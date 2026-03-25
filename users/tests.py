@@ -94,8 +94,8 @@ class UserRegistrationFormTests(TestCase):
             "email": "newuser@example.com",
             "first_name": "New",
             "last_name": "User",
-            "password": "password123",
-            "password2": "password123",
+            "password": "SecureP@ss2026!",
+            "password2": "SecureP@ss2026!",
         }
         form = UserRegistrationForm(data=form_data)
         self.assertTrue(form.is_valid())
