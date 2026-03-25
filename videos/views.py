@@ -6,6 +6,7 @@ import os
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.core.paginator import Paginator
 from django.db.models import F, Q
 from django.http import Http404, HttpResponse, JsonResponse
@@ -129,10 +130,14 @@ def search_videos(request):
     query = request.GET.get("query")
     videos = Video.objects.none()
     if query:
+        search_vector = SearchVector("title", weight="A") + SearchVector("description", weight="B")
+        search_query = SearchQuery(query, search_type="plain")
         videos = (
-            Video.objects.filter(Q(title__icontains=query) | Q(description__icontains=query), visibility="public")
+            Video.objects.filter(visibility="public")
+            .annotate(rank=SearchRank(search_vector, search_query))
+            .filter(Q(rank__gte=0.01) | Q(title__icontains=query))
             .select_related("uploader")
-            .order_by("-upload_date")
+            .order_by("-rank", "-upload_date")
         )
 
     paginator = Paginator(videos, 12)
