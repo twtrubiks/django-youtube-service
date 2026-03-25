@@ -1,0 +1,20 @@
+# Production overrides: remove source volume mount, add media volume
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+x-base-app-setting: &x-base-app
+  image: youtube-service-app
+  build: .
+  env_file: .env
+  volumes:
+    - media-data:/youtube_service/media
+
+services:
+
+    worker:
+      <<: *x-base-app
+
+    app:
+      <<: *x-base-app
+
+volumes:
+    media-data:
