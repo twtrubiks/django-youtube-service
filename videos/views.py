@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import F, Q
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -289,6 +289,12 @@ def delete_video(request, video_id):
 
     # If GET request, show confirmation page
     return render(request, "videos/confirm_delete_video.html", {"video": video})
+
+
+def video_status(request, video_id):
+    """回傳影片處理狀態 JSON。"""
+    video = get_object_or_404(Video, pk=video_id)
+    return JsonResponse({"status": video.processing_status or "pending"})
 
 
 def serve_hls_playlist(request, video_id):

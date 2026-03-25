@@ -17,6 +17,7 @@ urlpatterns = [
     path("category/<slug:category_slug>/", views.videos_by_category, name="videos_by_category"),
     path("category/<int:category_id>/delete/", views.delete_category, name="delete_category"),
     path("tag/<slug:tag_slug>/", views.videos_by_tag, name="videos_by_tag"),
+    path("<int:video_id>/status/", views.video_status, name="video_status"),
     # HLS streaming endpoints
     path("<int:video_id>/hls/playlist.m3u8", views.serve_hls_playlist, name="hls_playlist"),
     path("<int:video_id>/hls/<str:segment_name>", views.serve_hls_segment, name="hls_segment"),

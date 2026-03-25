@@ -31,10 +31,35 @@
         <div id="processing-banner" class="status-banner status-banner--processing">
             <div class="processing-spinner"></div>
             <span style="font-size: 18px; font-weight: 600;">Processing your video...</span>
-            <span style="font-size: 14px; color: var(--text-secondary);">Page will auto-refresh</span>
+            <span id="processing-status-text" style="font-size: 14px; color: var(--text-secondary);">Checking status...</span>
         </div>
         <script>
-            setTimeout(function() { location.reload(); }, 15000);
+        (function() {
+            const statusUrl = "{% url 'videos:video_status' video.id %}";
+            const statusText = document.getElementById('processing-status-text');
+            let attempts = 0;
+            const maxAttempts = 120;
+
+            function checkStatus() {
+                attempts++;
+                if (attempts > maxAttempts) {
+                    statusText.textContent = 'Processing is taking longer than expected. Please refresh manually.';
+                    return;
+                }
+                fetch(statusUrl)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'completed' || data.status === 'failed') {
+                            location.reload();
+                        } else {
+                            statusText.textContent = 'Processing... (checked ' + attempts + ' times)';
+                            setTimeout(checkStatus, 5000);
+                        }
+                    })
+                    .catch(() => setTimeout(checkStatus, 10000));
+            }
+            setTimeout(checkStatus, 5000);
+        })();
         </script>
         {% else %}
         <div class="status-banner">
