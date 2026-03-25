@@ -318,22 +318,19 @@ def serve_hls_segment(request, video_id, segment_name):
         raise Http404("HLS 文件不存在")
 
     # 構建片段文件路徑
-    hls_dir = os.path.dirname(os.path.join(settings.MEDIA_ROOT, video.hls_path))
-    segment_path = os.path.join(hls_dir, segment_name)
+    hls_dir = os.path.realpath(os.path.dirname(os.path.join(settings.MEDIA_ROOT, video.hls_path)))
+    segment_path = os.path.realpath(os.path.join(hls_dir, segment_name))
 
-    # 安全檢查：確保請求的文件在正確的目錄中
-    if not segment_path.startswith(hls_dir):
+    # 安全檢查：確保請求的文件在正確的目錄中（防止路徑穿越）
+    if not segment_path.startswith(hls_dir + os.sep):
         raise Http404("無效的片段請求")
-
-    if not os.path.exists(segment_path):
-        raise Http404("HLS 片段文件不存在")
 
     try:
         with open(segment_path, "rb") as f:
             content = f.read()
 
         response = HttpResponse(content, content_type="video/mp2t")
-        response["Cache-Control"] = "public, max-age=3600"  # 片段可以緩存
+        response["Cache-Control"] = "public, max-age=3600"
         return response
-    except Exception as e:
+    except OSError as e:
         raise Http404(f"讀取 HLS 片段失敗: {str(e)}") from e
