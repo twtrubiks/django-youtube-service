@@ -132,7 +132,7 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [(os.environ.get("REDIS_HOST", "localhost"), 6379)],
+            "hosts": [f"redis://{os.environ.get('REDIS_HOST', 'localhost')}:6379/3"],
         },
     }
 }
@@ -252,8 +252,8 @@ SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
 # Celery Configuration Options
-CELERY_BROKER_URL = f"redis://{_REDIS_HOST}:6379/0"  # 使用 Redis 作為 broker，0 是 Redis 的資料庫編號
-CELERY_RESULT_BACKEND = f"redis://{_REDIS_HOST}:6379/0"  # 儲存任務結果
+CELERY_BROKER_URL = f"redis://{_REDIS_HOST}:6379/0"
+CELERY_RESULT_BACKEND = f"redis://{_REDIS_HOST}:6379/2"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
