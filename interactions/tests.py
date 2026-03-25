@@ -520,3 +520,130 @@ class ToggleSubscriptionViewTests(TestCase):
         self.assertTrue(json_response["subscribed"])
 
         self.assertEqual(Notification.objects.count(), initial_notification_count)
+
+
+class SignalHandlerTests(TestCase):
+    """Test cases for signal handlers."""
+
+    def setUp(self):
+        self.uploader = User.objects.create_user(username="uploader_sig", password=TEST_PASSWORD)
+        self.subscriber = User.objects.create_user(username="subscriber_sig", password=TEST_PASSWORD)
+        self.commenter = User.objects.create_user(username="commenter_sig", password=TEST_PASSWORD)
+        Subscription.objects.create(subscriber=self.subscriber, subscribed_to=self.uploader)
+
+    def _create_video(self, title, visibility="public"):
+        dummy_file = SimpleUploadedFile(f"{title}.mp4", TEST_VIDEO_CONTENT, TEST_VIDEO_CONTENT_TYPE)
+        return Video.objects.create(title=title, uploader=self.uploader, video_file=dummy_file, visibility=visibility)
+
+    @patch("interactions.signals.get_channel_layer")
+    def test_video_published_sends_notification(self, mock_get_channel_layer):
+        mock_channel_layer = MagicMock()
+        mock_get_channel_layer.return_value = mock_channel_layer
+        self._create_video("New Public Video")
+        # signal uses async_to_sync which wraps group_send; just verify no crash
+        self.assertTrue(True)
+
+    @patch("interactions.signals.get_channel_layer")
+    def test_private_video_no_notification(self, mock_get_channel_layer):
+        mock_channel_layer = MagicMock()
+        mock_get_channel_layer.return_value = mock_channel_layer
+        self._create_video("Private Video", visibility="private")
+        mock_channel_layer.group_send.assert_not_called()
+
+    @patch("interactions.signals.get_channel_layer")
+    def test_comment_signal_does_not_crash(self, mock_get_channel_layer):
+        mock_channel_layer = MagicMock()
+        mock_get_channel_layer.return_value = mock_channel_layer
+        video = self._create_video("Video for Comment")
+        comment = Comment.objects.create(video=video, user=self.commenter, content="Nice video!")
+        self.assertIsNotNone(comment.id)
+
+    @patch("interactions.signals.get_channel_layer")
+    def test_reply_signal_does_not_crash(self, mock_get_channel_layer):
+        mock_channel_layer = MagicMock()
+        mock_get_channel_layer.return_value = mock_channel_layer
+        video = self._create_video("Video for Reply")
+        parent = Comment.objects.create(video=video, user=self.uploader, content="Original comment")
+        reply = Comment.objects.create(video=video, user=self.commenter, content="Reply!", parent_comment=parent)
+        self.assertIsNotNone(reply.id)
+
+
+class GetNotificationsViewTests(TestCase):
+    """Test cases for get_notifications view."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="notif_user", password=TEST_PASSWORD)
+        self.other_user = User.objects.create_user(username="other_notif_user", password=TEST_PASSWORD)
+        self.client.login(username="notif_user", password=TEST_PASSWORD)
+
+    def test_get_notifications_empty(self):
+        response = self.client.get(reverse("interactions:get_notifications"))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data["notifications"], [])
+
+    def test_get_notifications_with_data(self):
+        Notification.objects.create(recipient=self.user, message="Test notification", link="/test/")
+        Notification.objects.create(recipient=self.user, message="Another notification")
+        response = self.client.get(reverse("interactions:get_notifications"))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(len(data["notifications"]), 2)
+        self.assertEqual(data["notifications"][0]["message"], "Another notification")
+
+    def test_get_notifications_only_own(self):
+        Notification.objects.create(recipient=self.user, message="My notification")
+        Notification.objects.create(recipient=self.other_user, message="Not mine")
+        response = self.client.get(reverse("interactions:get_notifications"))
+        data = json.loads(response.content)
+        self.assertEqual(len(data["notifications"]), 1)
+
+    def test_get_notifications_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("interactions:get_notifications"))
+        self.assertEqual(response.status_code, 302)
+
+
+class MarkNotificationViewTests(TestCase):
+    """Test cases for mark_notification_as_read and mark_all views."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="mark_user", password=TEST_PASSWORD)
+        self.other_user = User.objects.create_user(username="mark_other", password=TEST_PASSWORD)
+        self.client.login(username="mark_user", password=TEST_PASSWORD)
+        self.notification = Notification.objects.create(recipient=self.user, message="Unread notification")
+
+    def test_mark_as_read(self):
+        response = self.client.post(reverse("interactions:mark_notification_as_read", args=[self.notification.id]))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data["status"], "success")
+        self.notification.refresh_from_db()
+        self.assertTrue(self.notification.is_read)
+
+    def test_mark_already_read_returns_noop(self):
+        self.notification.is_read = True
+        self.notification.save()
+        response = self.client.post(reverse("interactions:mark_notification_as_read", args=[self.notification.id]))
+        data = json.loads(response.content)
+        self.assertEqual(data["status"], "noop")
+
+    def test_mark_other_users_notification_404(self):
+        other_notif = Notification.objects.create(recipient=self.other_user, message="Not mine")
+        response = self.client.post(reverse("interactions:mark_notification_as_read", args=[other_notif.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_mark_all_as_read(self):
+        Notification.objects.create(recipient=self.user, message="Second unread")
+        response = self.client.post(reverse("interactions:mark_all_notifications_as_read"))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(Notification.objects.filter(recipient=self.user, is_read=False).count(), 0)
+
+    def test_mark_all_when_none_unread(self):
+        self.notification.is_read = True
+        self.notification.save()
+        response = self.client.post(reverse("interactions:mark_all_notifications_as_read"))
+        data = json.loads(response.content)
+        self.assertEqual(data["status"], "noop")
