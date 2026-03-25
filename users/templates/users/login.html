@@ -16,13 +16,7 @@
     <form method="post">
       {% csrf_token %}
       {% for field in form %}
-      <div style="margin-bottom: 16px;">
-        <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
-        {{ field }}
-        {% for error in field.errors %}
-          <p style="color: var(--error); font-size: 13px; margin: 4px 0 0 0;">{{ error }}</p>
-        {% endfor %}
-      </div>
+        {% include "users/_form_field.html" with field=field %}
       {% endfor %}
       <button type="submit" class="button" style="width: 100%;">Log In</button>
     </form>

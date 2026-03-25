@@ -1,0 +1,7 @@
+<div style="margin-bottom: 16px;">
+    <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
+    {{ field }}
+    {% for error in field.errors %}
+        <p style="color: var(--error); font-size: 13px; margin: 4px 0 0 0;">{{ error }}</p>
+    {% endfor %}
+</div>
