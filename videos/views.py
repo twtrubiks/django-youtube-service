@@ -298,7 +298,7 @@ def serve_hls_playlist(request, video_id):
     video = get_object_or_404(Video, pk=video_id)
 
     # 檢查影片可見性
-    if video.visibility == "private" and video.uploader != request.user:
+    if video.visibility == "private" and (not request.user.is_authenticated or video.uploader != request.user):
         raise Http404("影片不存在或無權限訪問")
 
     # 檢查 HLS 文件是否存在
@@ -328,7 +328,7 @@ def serve_hls_segment(request, video_id, segment_name):
     video = get_object_or_404(Video, pk=video_id)
 
     # 檢查影片可見性
-    if video.visibility == "private" and video.uploader != request.user:
+    if video.visibility == "private" and (not request.user.is_authenticated or video.uploader != request.user):
         raise Http404("影片不存在或無權限訪問")
 
     # 檢查 HLS 文件是否存在
