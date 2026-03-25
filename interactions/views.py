@@ -164,6 +164,7 @@ def toggle_subscription(request, user_id_to_subscribe):
     subscriber_count_val = 0
     try:
         if hasattr(user_to_subscribe_to, "profile") and user_to_subscribe_to.profile is not None:
+            user_to_subscribe_to.profile.refresh_subscriber_count()
             subscriber_count_val = user_to_subscribe_to.profile.subscribers_count()
     except Exception:
         logger.warning("Failed to get subscribers_count for user %s", user_id_to_subscribe, exc_info=True)

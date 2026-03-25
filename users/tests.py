@@ -49,12 +49,16 @@ class UserProfileModelTests(TestCase):
         測試 subscribers_count 方法在有訂閱者時的情況。
         """
         Subscription.objects.create(subscriber=self.user2, subscribed_to=self.user1)
+        self.profile1.refresh_subscriber_count()
         self.assertEqual(self.profile1.subscribers_count(), 1)
 
         Subscription.objects.create(subscriber=self.user3, subscribed_to=self.user1)
+        self.profile1.refresh_subscriber_count()
         self.assertEqual(self.profile1.subscribers_count(), 2)
 
         Subscription.objects.create(subscriber=self.user1, subscribed_to=self.user2)
+        self.profile1.refresh_subscriber_count()
+        self.profile2.refresh_subscriber_count()
         self.assertEqual(self.profile1.subscribers_count(), 2)
         self.assertEqual(self.profile2.subscribers_count(), 1)
 

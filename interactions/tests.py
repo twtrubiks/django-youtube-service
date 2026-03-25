@@ -433,6 +433,7 @@ class ToggleSubscriptionViewTests(TestCase):
 
     def test_unsubscribe_from_user_ajax(self):
         Subscription.objects.create(subscriber=self.subscriber_user, subscribed_to=self.channel_owner)
+        self.channel_owner_profile.refresh_subscriber_count()
         initial_subs_count = self.channel_owner_profile.subscribers_count()
 
         response = self._post_toggle_subscription_ajax(self.channel_owner.id)

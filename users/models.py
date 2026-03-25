@@ -11,13 +11,17 @@ class UserProfile(models.Model):
     profile_picture = models.ImageField(upload_to="profile_pics/", null=True, blank=True)
     channel_description = models.TextField(blank=True)
     banner_image = models.ImageField(upload_to="banner_pics/", null=True, blank=True)
+    subscriber_count = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return self.user.username
 
     def subscribers_count(self):
-        # Counts how many users have subscribed to this profile's user
-        return Subscription.objects.filter(subscribed_to=self.user).count()
+        return self.subscriber_count
+
+    def refresh_subscriber_count(self):
+        self.subscriber_count = Subscription.objects.filter(subscribed_to=self.user).count()
+        self.save(update_fields=["subscriber_count"])
 
 
 @receiver(post_save, sender=User)
