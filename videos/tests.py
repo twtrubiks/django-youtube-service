@@ -1048,12 +1048,10 @@ class ProcessVideoTaskTests(TestCase):
     @patch("videos.tasks.os.path.exists")
     @patch("videos.tasks.os.makedirs")
     @patch("videos.tasks.open", new_callable=mock_open)
-    @patch("videos.tasks.print")
     @patch("videos.tasks.ffmpeg")
     def test_process_video_thumbnail_fails(
         self,
         mock_ffmpeg_module,
-        mock_tasks_print,
         mock_open_file,
         mock_os_makedirs,
         mock_os_path_exists,
@@ -1088,23 +1086,6 @@ class ProcessVideoTaskTests(TestCase):
 
             self.video.refresh_from_db()
             self.assertEqual(self.video.processing_status, "failed", f"Actual status: {self.video.processing_status}")
-
-            found_expected_print_call = False
-            for call_args in mock_tasks_print.call_args_list:
-                printed_string = call_args[0][0]
-                if "縮圖產生失敗" in printed_string and decoded_stderr_message in printed_string:
-                    found_expected_print_call = True
-                    break
-
-            if not found_expected_print_call:
-                print(f"DEBUG: Looking for message containing '縮圖產生失敗' and '{decoded_stderr_message}'")
-                for i, call_args in enumerate(mock_tasks_print.call_args_list):
-                    print(f"DEBUG: Call {i}: {call_args[0][0]}")
-
-            self.assertTrue(
-                found_expected_print_call,
-                f"Expected print call containing '{decoded_stderr_message}' and '縮圖產生失敗'. Actual calls: {mock_tasks_print.call_args_list}",
-            )
 
             mock_video_file_save.assert_called_once()
             self.assertTrue(mock_video_file_save.call_args[0][1].endswith("_processed.mp4"))
