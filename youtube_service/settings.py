@@ -45,6 +45,8 @@ CSRF_TRUSTED_ORIGINS = [
 
 # Application definition
 
+ENABLE_PROMETHEUS = os.environ.get("ENABLE_PROMETHEUS", str(not DEBUG)).lower() in ("true", "1")
+
 INSTALLED_APPS = [
     "daphne",
     "channels",
@@ -59,11 +61,11 @@ INSTALLED_APPS = [
     "videos.apps.VideosConfig",
     "interactions.apps.InteractionsConfig",
     "taggit",
-    "django_prometheus",
 ]
+if ENABLE_PROMETHEUS:
+    INSTALLED_APPS.append("django_prometheus")
 
 MIDDLEWARE = [
-    "django_prometheus.middleware.PrometheusBeforeMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -72,8 +74,10 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
+if ENABLE_PROMETHEUS:
+    MIDDLEWARE.insert(0, "django_prometheus.middleware.PrometheusBeforeMiddleware")
+    MIDDLEWARE.append("django_prometheus.middleware.PrometheusAfterMiddleware")
 
 ROOT_URLCONF = "youtube_service.urls"
 
@@ -182,15 +186,31 @@ STATICFILES_DIRS = [
 STATIC_ROOT = BASE_DIR / "staticfiles"
 _USE_S3 = os.environ.get("USE_S3", "").lower() == "true"
 
+_DEFAULT_STORAGE_BACKEND = "django.core.files.storage.FileSystemStorage"
 if _USE_S3:
-    STORAGES = {
-        "default": {
-            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-        },
-        "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
-        },
-    }
+    try:
+        import storages  # noqa: F401
+
+        _DEFAULT_STORAGE_BACKEND = "storages.backends.s3boto3.S3Boto3Storage"
+    except ImportError:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "USE_S3=true but django-storages is not installed. "
+            "Install with: pip install -r requirements-s3.txt — falling back to local storage."
+        )
+        _USE_S3 = False
+
+STORAGES = {
+    "default": {
+        "BACKEND": _DEFAULT_STORAGE_BACKEND,
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
+
+if _USE_S3:
     AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
     AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME", "streamcraft-media")
@@ -204,14 +224,6 @@ if _USE_S3:
         else f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/"
     )
 else:
-    STORAGES = {
-        "default": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
-        },
-        "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
-        },
-    }
     MEDIA_URL = "/media/"
 
 MEDIA_ROOT = BASE_DIR / "media"

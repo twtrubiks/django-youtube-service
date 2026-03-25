@@ -1,0 +1,4 @@
+# S3/MinIO 物件儲存（按需安裝）
+# docker build --build-arg INSTALL_S3=true .
+django-storages[s3]==1.14.4
+boto3==1.38.0

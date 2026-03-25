@@ -19,6 +19,12 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # 安裝 Python 套件
 RUN uv pip install --no-cache --system -r requirements.txt
 
+# 可選：S3 物件儲存 / OpenTelemetry 追蹤（docker build --build-arg INSTALL_S3=true .）
+ARG INSTALL_S3=false
+ARG INSTALL_OTEL=false
+RUN if [ "$INSTALL_S3" = "true" ]; then uv pip install --no-cache --system -r requirements-s3.txt; fi && \
+    if [ "$INSTALL_OTEL" = "true" ]; then uv pip install --no-cache --system -r requirements-otel.txt; fi
+
 # 設定目錄權限給 appuser
 RUN chown -R appuser:appuser /youtube_service
 

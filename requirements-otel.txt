@@ -1,0 +1,7 @@
+# OpenTelemetry 分散式追蹤（按需安裝）
+# docker build --build-arg INSTALL_OTEL=true .
+opentelemetry-api==1.33.0
+opentelemetry-sdk==1.33.0
+opentelemetry-instrumentation-django==0.54b0
+opentelemetry-instrumentation-celery==0.54b0
+opentelemetry-exporter-otlp-proto-grpc==1.33.0
