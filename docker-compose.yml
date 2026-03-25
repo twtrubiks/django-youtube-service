@@ -25,7 +25,7 @@ services:
 
     worker:
       <<: *x-base-app
-      command: celery -A youtube_service worker -l info
+      command: celery -A youtube_service worker -l info --concurrency=${CELERY_CONCURRENCY:-2}
       restart: always
       depends_on:
         app:

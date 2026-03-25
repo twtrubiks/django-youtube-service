@@ -63,6 +63,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -116,6 +117,8 @@ DATABASES = {
         "PASSWORD": os.environ.get("DB_PASSWORD", "password123"),
         "HOST": os.environ.get("DB_HOST", "localhost"),
         "PORT": int(os.environ.get("DB_PORT", "5432")),
+        "CONN_MAX_AGE": 600,
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 
@@ -174,6 +177,14 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -227,8 +238,20 @@ LOGGING = {
     },
 }
 
-# Celery Configuration Options
+# Cache
 _REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": f"redis://{_REDIS_HOST}:6379/1",
+    }
+}
+
+# Session (use cache-backed sessions)
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+
+# Celery Configuration Options
 CELERY_BROKER_URL = f"redis://{_REDIS_HOST}:6379/0"  # 使用 Redis 作為 broker，0 是 Redis 的資料庫編號
 CELERY_RESULT_BACKEND = f"redis://{_REDIS_HOST}:6379/0"  # 儲存任務結果
 CELERY_ACCEPT_CONTENT = ["json"]
