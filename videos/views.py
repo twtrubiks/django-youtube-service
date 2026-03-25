@@ -301,49 +301,34 @@ def video_status(request, video_id):
     return JsonResponse({"status": video.processing_status or "pending"})
 
 
-def serve_hls_playlist(request, video_id):
-    """
-    服務 HLS 播放清單文件
-    """
+def _get_hls_video(request, video_id):
+    """取得影片並驗證 HLS 存取權限，回傳 video 物件。"""
     video = get_object_or_404(Video, pk=video_id)
-
-    # 檢查影片可見性
     if video.visibility == "private" and (not request.user.is_authenticated or video.uploader != request.user):
         raise Http404("影片不存在或無權限訪問")
-
-    # 檢查 HLS 文件是否存在
     if not video.hls_path:
-        raise Http404("HLS 播放清單不存在")
+        raise Http404("HLS 文件不存在")
+    return video
 
+
+def serve_hls_playlist(request, video_id):
+    """服務 HLS 播放清單文件"""
+    video = _get_hls_video(request, video_id)
     playlist_path = os.path.join(settings.MEDIA_ROOT, video.hls_path)
-
-    if not os.path.exists(playlist_path):
-        raise Http404("HLS 播放清單文件不存在")
 
     try:
         with open(playlist_path, encoding="utf-8") as f:
             content = f.read()
-
         response = HttpResponse(content, content_type="application/vnd.apple.mpegurl")
         response["Cache-Control"] = "no-cache"
         return response
-    except Exception as e:
+    except OSError as e:
         raise Http404(f"讀取 HLS 播放清單失敗: {str(e)}") from e
 
 
 def serve_hls_segment(request, video_id, segment_name):
-    """
-    服務 HLS 片段文件
-    """
-    video = get_object_or_404(Video, pk=video_id)
-
-    # 檢查影片可見性
-    if video.visibility == "private" and (not request.user.is_authenticated or video.uploader != request.user):
-        raise Http404("影片不存在或無權限訪問")
-
-    # 檢查 HLS 文件是否存在
-    if not video.hls_path:
-        raise Http404("HLS 文件不存在")
+    """服務 HLS 片段文件"""
+    video = _get_hls_video(request, video_id)
 
     # 構建片段文件路徑
     hls_dir = os.path.realpath(os.path.dirname(os.path.join(settings.MEDIA_ROOT, video.hls_path)))
