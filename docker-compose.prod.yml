@@ -1,5 +1,6 @@
-# Production overrides: remove source volume mount, add media volume
+# Production overrides: Nginx reverse proxy, no source mount, scalable app
 # Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Scale: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --scale app=3
 
 x-base-app-setting: &x-base-app
   image: youtube-service-app
@@ -7,14 +8,31 @@ x-base-app-setting: &x-base-app
   env_file: .env
   volumes:
     - media-data:/youtube_service/media
+    - static-data:/youtube_service/staticfiles
 
 services:
+
+    nginx:
+      image: nginx:alpine
+      ports:
+        - "80:80"
+      volumes:
+        - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+        - media-data:/youtube_service/media:ro
+        - static-data:/youtube_service/staticfiles:ro
+      depends_on:
+        - app
+      restart: always
 
     worker:
       <<: *x-base-app
 
     app:
       <<: *x-base-app
+      ports: []
+      deploy:
+        replicas: 2
 
 volumes:
     media-data:
+    static-data:
