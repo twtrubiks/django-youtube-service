@@ -71,12 +71,12 @@
     <div class="video-detail-info">
         <h2>{{ video.title }}</h2>
         <div class="video-detail-meta">
-            <span>{{ video.views_count }} views</span> &bull;
-            <span>{{ video.upload_date|date:"Y-m-d H:i" }}</span> &bull;
-            <span>Uploader: <a href="{% url 'users:channel' video.uploader.username %}">{{ video.uploader.username }}</a></span> &bull;
+            <span>{{ video.views_count }} views</span>
+            <span>{{ video.upload_date|date:"Y-m-d H:i" }}</span>
+            <span>Uploader: <a href="{% url 'users:channel' video.uploader.username %}">{{ video.uploader.username }}</a></span>
             <span>Visibility: {{ video.get_visibility_display }}</span>
             {% if video.category %}
-            &bull; <span>Category: <a href="{% url 'videos:videos_by_category' video.category.slug %}">{{ video.category.name }}</a></span>
+            <span>Category: <a href="{% url 'videos:videos_by_category' video.category.slug %}">{{ video.category.name }}</a></span>
             {% endif %}
         </div>
         {% if video.tags.all %}

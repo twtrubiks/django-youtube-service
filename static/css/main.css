@@ -605,6 +605,11 @@ form button[type="submit"] {
     gap: 4px;
 }
 
+.video-detail-meta span + span::before {
+    content: "\00B7";
+    margin-right: 4px;
+}
+
 .video-detail-meta a {
     color: var(--accent);
 }
@@ -1590,6 +1595,10 @@ hr {
     .video-detail-meta {
         flex-direction: column;
         gap: 2px;
+    }
+
+    .video-detail-meta span + span::before {
+        content: none;
     }
 
     .auth-form-container {
