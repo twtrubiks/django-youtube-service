@@ -8,6 +8,23 @@
 {% block og_extra %}
 {% if video.thumbnail %}<meta property="og:image" content="{{ video.thumbnail.url }}">{% endif %}
 {% endblock %}
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoObject",
+  "name": "{{ video.title|escapejs }}",
+  "description": "{{ video.description|truncatewords:30|escapejs|default:"Video on StreamCraft" }}",
+  "uploadDate": "{{ video.upload_date|date:"c" }}",
+  "interactionStatistic": {
+    "@type": "InteractionCounter",
+    "interactionType": "https://schema.org/WatchAction",
+    "userInteractionCount": {{ video.views_count }}
+  }{% if video.thumbnail %},
+  "thumbnailUrl": "{{ video.thumbnail.url }}"{% endif %}
+}
+</script>
+{% endblock %}
 
 {% block content %}
 <div class="container">
