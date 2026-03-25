@@ -62,7 +62,7 @@ def video_detail(request, video_id):
         HttpResponse: 渲染的影片詳細頁面
     """
     video = get_object_or_404(Video, pk=video_id)
-    comments = Comment.objects.filter(video=video).order_by("-timestamp")
+    comments = Comment.objects.filter(video=video).select_related("user", "parent_comment__user").order_by("-timestamp")
     comment_form = CommentForm()
 
     viewed_video_session_key = f"viewed_video_{video.id}"
@@ -107,7 +107,7 @@ def home(request):
     Returns:
         HttpResponse: 渲染的首頁
     """
-    videos = Video.objects.filter(visibility="public").order_by("-upload_date")
+    videos = Video.objects.filter(visibility="public").select_related("uploader").order_by("-upload_date")
     return render(request, "videos/home.html", {"videos": videos})
 
 
@@ -124,9 +124,11 @@ def search_videos(request):
     query = request.GET.get("query")
     videos = []
     if query:
-        videos = Video.objects.filter(
-            Q(title__icontains=query) | Q(description__icontains=query), visibility="public"
-        ).order_by("-upload_date")
+        videos = (
+            Video.objects.filter(Q(title__icontains=query) | Q(description__icontains=query), visibility="public")
+            .select_related("uploader")
+            .order_by("-upload_date")
+        )
 
     return render(request, "videos/search_results.html", {"videos": videos, "query": query})
 
@@ -155,7 +157,9 @@ def edit_video(request, video_id):
 
 def videos_by_category(request, category_slug):
     category = get_object_or_404(Category, slug=category_slug)
-    videos = Video.objects.filter(category=category, visibility="public").order_by("-upload_date")
+    videos = (
+        Video.objects.filter(category=category, visibility="public").select_related("uploader").order_by("-upload_date")
+    )
     context = {
         "category": category,
         "videos": videos,
@@ -165,7 +169,11 @@ def videos_by_category(request, category_slug):
 
 def videos_by_tag(request, tag_slug):
     tag = get_object_or_404(Tag, slug=tag_slug)
-    videos = Video.objects.filter(tags__slug=tag_slug, visibility="public").order_by("-upload_date")
+    videos = (
+        Video.objects.filter(tags__slug=tag_slug, visibility="public")
+        .select_related("uploader")
+        .order_by("-upload_date")
+    )
     context = {
         "tag": tag,
         "videos": videos,

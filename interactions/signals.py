@@ -34,7 +34,7 @@ def video_published_handler(sender, instance, created, **kwargs):
     """
     if created and instance.visibility == "public":
         uploader = instance.uploader
-        subscribers = Subscription.objects.filter(subscribed_to=uploader)
+        subscribers = Subscription.objects.filter(subscribed_to=uploader).select_related("subscriber")
         channel_layer = get_channel_layer()
 
         for sub_entry in subscribers:
