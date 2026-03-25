@@ -15,6 +15,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 
 # 第三方庫 imports
+from django_ratelimit.decorators import ratelimit
 from taggit.models import Tag
 
 from interactions.forms import CommentForm
@@ -145,8 +146,9 @@ def search_videos(request):
     return render(request, "videos/search_results.html", {"videos": page_obj, "page_obj": page_obj, "query": query})
 
 
+@ratelimit(key="ip", rate="30/m", method="GET", block=True)
 def search_suggest(request):
-    """回傳搜尋建議（最多 5 筆影片標題）。"""
+    """回傳搜尋建議（最多 5 筆影片標題）。使用 icontains 而非全文搜尋，因為自動完成需要匹配部分輸入。"""
     query = request.GET.get("q", "").strip()
     if len(query) < 2:
         return JsonResponse({"suggestions": []})
