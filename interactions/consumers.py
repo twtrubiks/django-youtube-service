@@ -1,5 +1,6 @@
 # 標準庫 imports
 import json
+import logging
 
 # 第三方庫 imports
 from channels.db import database_sync_to_async
@@ -10,6 +11,8 @@ from django.contrib.auth.models import User
 
 # 本地應用 imports
 from .models import Notification
+
+logger = logging.getLogger(__name__)
 
 
 class NotificationConsumer(AsyncWebsocketConsumer):
@@ -28,14 +31,14 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
-        print(f"User {user_id} connected to notifications.")
+        logger.info("User %s connected to notifications.", user_id)
 
     async def disconnect(self, close_code):
         """處理 WebSocket 斷線。"""
         # Leave room group
         if hasattr(self, "room_group_name"):
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
-            print(f"User disconnected from notifications: {self.room_group_name}")
+            logger.info("User disconnected from notifications: %s", self.room_group_name)
 
     async def receive(self, text_data):
         """
@@ -55,31 +58,16 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         Args:
             event: 包含通知資料的事件字典
         """
-        print(
-            f"[consumers.py] send_notification called for group "
-            f"{self.room_group_name}. Event received: {json.dumps(event)}"
-        )
+        original_message_payload = event["message"]
 
-        original_message_payload = event["message"]  # This is usually a dictionary
-
-        # Save notification to database
         try:
             user_id = self.scope["url_route"]["kwargs"]["user_id"]
             await self._save_notification_db(user_id, original_message_payload)
-        except Exception as e:
-            print(f"Error saving notification to DB: {e}")
+        except Exception:
+            logger.exception("Error saving notification to DB for group %s", self.room_group_name)
 
-        # Prepare message for WebSocket client
-        # The client expects a 'type' (e.g., 'new_video') and a 'message' payload
         client_message_type = original_message_payload.get("type", "generic_notification")
-
-        # Send message to WebSocket
         await self.send(text_data=json.dumps({"type": client_message_type, "message": original_message_payload}))
-        print(
-            f"[consumers.py] Sent notification data: "
-            f"{json.dumps(original_message_payload)} to client in group "
-            f"{self.room_group_name}"
-        )
 
     @database_sync_to_async
     def _save_notification_db(self, user_id, message_payload):
@@ -113,8 +101,8 @@ class NotificationConsumer(AsyncWebsocketConsumer):
                 # Optionally, you could add notification_type if you implement it
                 # notification_type=message_payload.get('type')
             )
-            print(f"Notification saved for user {user_id}: {notification_text[:50]}")
+            logger.debug("Notification saved for user %s: %s", user_id, notification_text[:50])
         except User.DoesNotExist:
-            print(f"User with id {user_id} not found. Notification not saved.")
-        except Exception as e:
-            print(f"Failed to save notification for user {user_id}: {e}")
+            logger.warning("User with id %s not found. Notification not saved.", user_id)
+        except Exception:
+            logger.exception("Failed to save notification for user %s", user_id)

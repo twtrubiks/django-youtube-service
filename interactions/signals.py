@@ -83,7 +83,7 @@ def new_comment_or_reply_handler(sender, instance, created, **kwargs):
 
         if instance.parent_comment:
             # This is a REPLY
-            print(f"[signals.py] Conditions met for a REPLY on Comment ID: {instance.id}")
+            logger.debug("Reply signal triggered for Comment ID: %s", instance.id)
             parent_comment_author = instance.parent_comment.user
             # Notify parent_comment_author if they are not the one replying and are active
             if parent_comment_author != instance.user and parent_comment_author.is_active:
@@ -112,7 +112,7 @@ def new_comment_or_reply_handler(sender, instance, created, **kwargs):
 
         else:
             # This is a new TOP-LEVEL COMMENT
-            print(f"[signals.py] Conditions met for a NEW TOP-LEVEL COMMENT on Comment ID: {instance.id}")
+            logger.debug("New top-level comment signal triggered for Comment ID: %s", instance.id)
             # Notify the video owner if they are not the one commenting and are active
             if video_owner != instance.user and video_owner.is_active:
                 group_name = f"user_{video_owner.id}_notifications"

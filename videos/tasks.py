@@ -193,10 +193,10 @@ def generate_hls_files(video, input_file_path, file_name_without_ext):
         playlist_path = os.path.join(hls_output_directory, playlist_filename)
 
         # 生成 HLS 文件
-        print(f"開始為影片 {video.title} (ID: {video.id}) 生成 HLS 文件...")
+        logger.info("開始為影片 %s (ID: %s) 生成 HLS 文件...", video.title, video.id)
         start_time = time.time()
 
-        stdout_bytes, stderr_bytes = (
+        (
             ffmpeg.input(input_file_path)
             .output(
                 playlist_path,
@@ -209,12 +209,7 @@ def generate_hls_files(video, input_file_path, file_name_without_ext):
         )
 
         end_time = time.time()
-        print(f"影片 {video.title} (ID: {video.id}) HLS 文件生成完成。耗時: {end_time - start_time:.2f} 秒")
-
-        if stdout_bytes:
-            print(f"DEBUG: FFmpeg stdout (HLS {video.id}): {stdout_bytes.decode('utf8', errors='ignore')[:500]}...")
-        if stderr_bytes:
-            print(f"INFO: FFmpeg stderr (HLS {video.id}): {stderr_bytes.decode('utf8', errors='ignore')[:500]}...")
+        logger.info("影片 %s (ID: %s) HLS 文件生成完成，耗時: %.2f 秒", video.title, video.id, end_time - start_time)
 
         # 更新影片模型的 HLS 路徑
         video.hls_path = os.path.join(hls_dir_name, video_hls_dir, playlist_filename)
@@ -222,6 +217,6 @@ def generate_hls_files(video, input_file_path, file_name_without_ext):
 
         return True
 
-    except Exception as e:
-        print(f"ERROR: 生成 HLS 文件失敗 (影片 ID: {video.id}): {str(e)}")
+    except Exception:
+        logger.exception("生成 HLS 文件失敗 (影片 ID: %s)", video.id)
         return False
