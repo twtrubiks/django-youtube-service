@@ -1,23 +1,23 @@
 <div class="video-item">
     <a href="{% url 'videos:video_detail' video.id %}">
-        <div class="video-thumbnail">
+        <div class="video-item__thumbnail">
             {% if video.thumbnail %}
                 <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail" loading="lazy">
             {% else %}
-                <div class="video-thumbnail-placeholder">No Thumbnail</div>
+                <div class="video-item__thumbnail-placeholder">No Thumbnail</div>
             {% endif %}
         </div>
     </a>
-    <div class="video-info">
-        <h3 class="video-title">
+    <div class="video-item__info">
+        <h3 class="video-item__title">
             <a href="{% url 'videos:video_detail' video.id %}">{{ video.title }}</a>
         </h3>
         {% if show_uploader %}
-        <div class="video-uploader">
+        <div class="video-item__uploader">
             <a href="{% url 'users:channel' video.uploader.username %}">{{ video.uploader.username }}</a>
         </div>
         {% endif %}
-        <div class="video-views">
+        <div class="video-item__views">
             {{ video.views_count }} views &bull; {{ video.upload_date|timesince }} ago
         </div>
     </div>

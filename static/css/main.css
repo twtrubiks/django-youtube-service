@@ -492,13 +492,13 @@ form button[type="submit"] {
     color: inherit;
 }
 
-.video-thumbnail {
+.video-item__thumbnail {
     position: relative;
     overflow: hidden;
     border-radius: var(--radius);
 }
 
-.video-thumbnail img {
+.video-item__thumbnail img {
     width: 100%;
     height: auto;
     aspect-ratio: 16 / 9;
@@ -508,11 +508,11 @@ form button[type="submit"] {
     transition: transform 0.3s ease;
 }
 
-.video-item:hover .video-thumbnail img {
+.video-item:hover .video-item__thumbnail img {
     transform: scale(1.03);
 }
 
-.video-thumbnail-placeholder {
+.video-item__thumbnail-placeholder {
     width: 100%;
     aspect-ratio: 16 / 9;
     background-color: var(--surface);
@@ -524,11 +524,11 @@ form button[type="submit"] {
     font-size: 14px;
 }
 
-.video-info {
+.video-item__info {
     padding: 12px 4px;
 }
 
-.video-title {
+.video-item__title {
     font-size: 15px;
     font-weight: 600;
     color: var(--text);
@@ -541,30 +541,30 @@ form button[type="submit"] {
     line-height: 1.4;
 }
 
-.video-title a {
+.video-item__title a {
     color: inherit;
     text-decoration: none;
 }
 
-.video-title a:hover {
+.video-item__title a:hover {
     color: var(--text);
 }
 
-.video-uploader {
+.video-item__uploader {
     font-size: 13px;
     color: var(--text-secondary);
     margin-bottom: 2px;
 }
 
-.video-uploader a {
+.video-item__uploader a {
     color: var(--text-secondary);
 }
 
-.video-uploader a:hover {
+.video-item__uploader a:hover {
     color: var(--text);
 }
 
-.video-views {
+.video-item__views {
     font-size: 13px;
     color: var(--text-muted);
 }
