@@ -4,7 +4,6 @@
 set -e
 
 echo 'Run migration'
-python manage.py makemigrations
 python manage.py migrate
 
 echo "Running one-time setup (create_category)..."
