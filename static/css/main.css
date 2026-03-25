@@ -253,7 +253,7 @@ form.header-search-form button:hover,
     align-items: center;
 }
 
-.header-nav-links ul li.notification-item #notification-bell-icon {
+.header-nav-links ul li.notification-item .notification-bell-icon {
     display: flex;
     align-items: center;
     padding: 8px;
@@ -263,7 +263,7 @@ form.header-search-form button:hover,
     cursor: pointer;
 }
 
-.header-nav-links ul li.notification-item #notification-bell-icon:hover {
+.header-nav-links ul li.notification-item .notification-bell-icon:hover {
     background-color: var(--surface-2);
 }
 
@@ -695,6 +695,46 @@ form button[type="submit"] {
     flex-shrink: 0;
 }
 
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--primary), #7c3aed);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #fff;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.reply-toggle-btn {
+    margin-top: 8px;
+}
+
+.reply-form-container {
+    display: none;
+    margin-top: 12px;
+}
+
+.reply-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background-color: var(--surface);
+    color: var(--text);
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    resize: vertical;
+}
+
+.reply-submit-btn {
+    margin-top: 8px;
+}
+
 .comment-author-avatar img {
     width: 40px;
     height: 40px;
@@ -896,20 +936,20 @@ form button[type="submit"] {
     position: relative;
 }
 
-#notification-bell-icon {
+.notification-bell-icon {
     cursor: pointer;
     font-size: 20px;
     color: var(--text-secondary);
     position: relative;
 }
 
-#notification-bell-icon svg {
+.notification-bell-icon svg {
     width: 22px;
     height: 22px;
     fill: currentColor;
 }
 
-#notification-indicator-dot {
+.notification-indicator-dot {
     position: absolute;
     top: 0;
     right: 0;
@@ -920,7 +960,7 @@ form button[type="submit"] {
     border: 2px solid var(--bg);
 }
 
-#notification-count {
+.notification-count {
     position: absolute;
     top: -6px;
     right: -10px;
@@ -935,7 +975,7 @@ form button[type="submit"] {
     text-align: center;
 }
 
-#notification-dropdown {
+.notification-dropdown {
     transition: opacity 0.2s ease, transform 0.2s ease;
     opacity: 0;
     transform: translateY(-8px);
@@ -954,7 +994,7 @@ form button[type="submit"] {
     border-radius: var(--radius);
 }
 
-#notification-dropdown .notification-dropdown-header {
+.notification-dropdown .notification-dropdown-header {
     padding: 16px 20px;
     font-size: 16px;
     font-weight: 700;
@@ -966,13 +1006,13 @@ form button[type="submit"] {
     z-index: 1;
 }
 
-#notification-dropdown.visible {
+.notification-dropdown.visible {
     display: block !important;
     opacity: 1;
     transform: translateY(0);
 }
 
-#notification-dropdown-list {
+.notification-dropdown-list {
     list-style: none;
     padding: 0;
     margin: 0;
@@ -980,7 +1020,7 @@ form button[type="submit"] {
     flex-direction: column;
 }
 
-#notification-dropdown-list .notification-item {
+.notification-dropdown-list .notification-item {
     padding: 14px 20px;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
@@ -988,26 +1028,26 @@ form button[type="submit"] {
     display: block;
 }
 
-#notification-dropdown-list .notification-item:last-child {
+.notification-dropdown-list .notification-item:last-child {
     border-bottom: none;
 }
 
-#notification-dropdown-list .notification-item:hover {
+.notification-dropdown-list .notification-item:hover {
     background-color: var(--surface-2);
 }
 
-#notification-dropdown-list .notification-item.unread {
+.notification-dropdown-list .notification-item.unread {
     background-color: rgba(62, 166, 255, 0.06);
     border-left: 3px solid var(--accent);
 }
 
-#notification-dropdown-list .notification-item .notification-item-content {
+.notification-dropdown-list .notification-item .notification-item-content {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
-#notification-dropdown-list .notification-item .notification-title {
+.notification-dropdown-list .notification-item .notification-title {
     font-weight: 600;
     font-size: 14px;
     color: var(--text);
@@ -1015,14 +1055,14 @@ form button[type="submit"] {
     line-height: 1.4;
 }
 
-#notification-dropdown-list .notification-item .notification-details {
+.notification-dropdown-list .notification-item .notification-details {
     font-size: 13px;
     color: var(--text-secondary);
     line-height: 1.5;
     margin: 0;
 }
 
-#notification-dropdown-list .notification-item a.notification-link {
+.notification-dropdown-list .notification-item a.notification-link {
     font-size: 13px;
     font-weight: 600;
     color: var(--accent);
@@ -1031,18 +1071,18 @@ form button[type="submit"] {
     display: inline-block;
 }
 
-#notification-dropdown-list .notification-item a.notification-link:hover {
+.notification-dropdown-list .notification-item a.notification-link:hover {
     text-decoration: underline;
 }
 
-#notification-dropdown-list .notification-item .notification-timestamp {
+.notification-dropdown-list .notification-item .notification-timestamp {
     font-size: 12px;
     color: var(--text-muted);
     margin-top: 4px;
     text-align: right;
 }
 
-#notification-dropdown-list .notification-item img {
+.notification-dropdown-list .notification-item img {
     margin-top: 8px;
     border-radius: var(--radius-sm);
     max-width: 120px;
@@ -1051,7 +1091,7 @@ form button[type="submit"] {
     aspect-ratio: 16 / 9;
 }
 
-#notification-dropdown-list .no-notifications-placeholder {
+.notification-dropdown-list .no-notifications-placeholder {
     padding: 32px 20px;
     text-align: center;
     color: var(--text-muted);
@@ -1606,7 +1646,7 @@ hr {
         padding: 24px;
     }
 
-    #notification-dropdown {
+    .notification-dropdown {
         width: calc(100vw - 16px);
         right: 0;
         left: auto;

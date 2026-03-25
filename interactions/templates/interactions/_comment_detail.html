@@ -1,7 +1,7 @@
 {% comment %}This template snippet is used to render a single comment, primarily for AJAX responses.{% endcomment %}
 <div class="comment" id="comment-{{ comment.id }}">
     <div class="comment-author-avatar">
-        <div role="img" aria-label="{{ comment.user.username }}'s avatar" style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), #7c3aed); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 16px; flex-shrink: 0;">
+        <div role="img" aria-label="{{ comment.user.username }}'s avatar" class="avatar-circle">
             {{ comment.user.username|first|upper }}
         </div>
     </div>
@@ -11,15 +11,15 @@
         <p class="comment-text">{{ comment.content|linebreaksbr }}</p>
 
         {% if request.user.is_authenticated %}
-        <button type="button" class="button button-secondary button-small" onclick="toggleReplyForm('{{ comment.id }}')" style="margin-top: 8px;">Reply</button>
-        <div id="reply-form-container-{{ comment.id }}" class="reply-form-container" style="display:none; margin-top: 12px;">
+        <button type="button" class="button button-secondary button-small reply-toggle-btn" onclick="toggleReplyForm('{{ comment.id }}')">Reply</button>
+        <div id="reply-form-container-{{ comment.id }}" class="reply-form-container">
             <form method="post" action="{% url 'interactions:add_comment' video.id %}" class="comment-form reply-form-actual">
                 {% csrf_token %}
                 <input type="hidden" name="parent_comment_id" value="{{ comment.id }}">
                 <div>
-                    <textarea name="content" rows="3" placeholder="Write a reply..." required aria-label="Reply to {{ comment.user.username }}" style="width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background-color: var(--surface); color: var(--text); font-family: 'Poppins', sans-serif; font-size: 14px; resize: vertical;"></textarea>
+                    <textarea name="content" rows="3" placeholder="Write a reply..." required aria-label="Reply to {{ comment.user.username }}" class="reply-textarea"></textarea>
                 </div>
-                <button type="submit" name="submit_reply" value="true" class="button button-small" style="margin-top: 8px;">Post Reply</button>
+                <button type="submit" name="submit_reply" value="true" class="button button-small reply-submit-btn">Post Reply</button>
             </form>
         </div>
         {% endif %}
