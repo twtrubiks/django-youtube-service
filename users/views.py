@@ -3,6 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.shortcuts import redirect, render
+from django_ratelimit.decorators import ratelimit
 
 from interactions.models import Subscription
 from videos.models import Video
@@ -11,6 +12,7 @@ from .forms import UserEditForm, UserLoginForm, UserProfileForm, UserRegistratio
 from .models import UserProfile
 
 
+@ratelimit(key="ip", rate="5/m", method="POST", block=True)
 def register_view(request):
     if request.method == "POST":
         form = UserRegistrationForm(request.POST)
@@ -26,6 +28,7 @@ def register_view(request):
     return render(request, "users/register.html", {"form": form})
 
 
+@ratelimit(key="ip", rate="10/m", method="POST", block=True)
 def login_view(request):
     if request.method == "POST":
         form = UserLoginForm(request.POST)

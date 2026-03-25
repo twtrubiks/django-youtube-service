@@ -7,6 +7,7 @@ ffmpeg-python==0.2.0
 pillow==12.1.1
 pytz
 whitenoise==6.9.0
+django-ratelimit==4.1.0
 coverage
 psycopg2-binary==2.9.11
 ruff # for format

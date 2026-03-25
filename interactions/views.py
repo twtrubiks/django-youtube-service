@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.decorators.http import require_POST
+from django_ratelimit.decorators import ratelimit
 
 from videos.models import Video
 
@@ -16,6 +17,7 @@ from .forms import CommentForm
 from .models import Comment, LikeDislike, Notification, Subscription
 
 
+@ratelimit(key="user", rate="30/m", method="POST", block=True)
 @require_POST
 @login_required
 def add_comment(request, video_id):
@@ -66,6 +68,7 @@ def add_comment(request, video_id):
             return redirect("videos:video_detail", video_id=video.id)
 
 
+@ratelimit(key="user", rate="60/m", method="POST", block=True)
 @login_required
 @require_POST
 def vote_video(request, video_id):
@@ -110,6 +113,7 @@ def vote_video(request, video_id):
     return redirect("videos:video_detail", video_id=video.id)
 
 
+@ratelimit(key="user", rate="30/m", method="POST", block=True)
 @login_required
 @require_POST
 def toggle_subscription(request, user_id_to_subscribe):
