@@ -17,11 +17,15 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         """處理 WebSocket 連線。"""
-        # 暫時先允許所有連線，之後再加入使用者驗證
+        user = self.scope.get("user")
         user_id = self.scope["url_route"]["kwargs"]["user_id"]
+
+        if not user or not user.is_authenticated or user.id != int(user_id):
+            await self.close()
+            return
+
         self.room_group_name = f"user_{user_id}_notifications"
 
-        # Join room group
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
         print(f"User {user_id} connected to notifications.")
