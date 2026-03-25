@@ -45,6 +45,25 @@ services:
         redis-django:
           condition: service_healthy
 
+    db-backup:
+      image: postgres:18
+      env_file: .env
+      environment:
+        - PGPASSWORD=${DB_PASSWORD:-password123}
+      volumes:
+        - ./scripts:/scripts:ro
+        - db-backups:/backups
+      command: >
+        sh -c "while true; do
+          /scripts/backup_db.sh;
+          sleep 86400;
+        done"
+      profiles:
+        - "backup"
+      depends_on:
+        django-postgres:
+          condition: service_healthy
+
     django-postgres:
       image: postgres:18
       # ports:
@@ -78,3 +97,4 @@ services:
 volumes:
     redis-django-data:
     db-data:
+    db-backups:
