@@ -5,6 +5,7 @@ import os
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import F, Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -108,7 +109,9 @@ def home(request):
         HttpResponse: 渲染的首頁
     """
     videos = Video.objects.filter(visibility="public").select_related("uploader").order_by("-upload_date")
-    return render(request, "videos/home.html", {"videos": videos})
+    paginator = Paginator(videos, 12)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    return render(request, "videos/home.html", {"videos": page_obj, "page_obj": page_obj})
 
 
 def search_videos(request):
@@ -122,7 +125,7 @@ def search_videos(request):
         HttpResponse: 渲染的搜尋結果頁面
     """
     query = request.GET.get("query")
-    videos = []
+    videos = Video.objects.none()
     if query:
         videos = (
             Video.objects.filter(Q(title__icontains=query) | Q(description__icontains=query), visibility="public")
@@ -130,7 +133,9 @@ def search_videos(request):
             .order_by("-upload_date")
         )
 
-    return render(request, "videos/search_results.html", {"videos": videos, "query": query})
+    paginator = Paginator(videos, 12)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    return render(request, "videos/search_results.html", {"videos": page_obj, "page_obj": page_obj, "query": query})
 
 
 @login_required
@@ -160,9 +165,12 @@ def videos_by_category(request, category_slug):
     videos = (
         Video.objects.filter(category=category, visibility="public").select_related("uploader").order_by("-upload_date")
     )
+    paginator = Paginator(videos, 12)
+    page_obj = paginator.get_page(request.GET.get("page"))
     context = {
         "category": category,
-        "videos": videos,
+        "videos": page_obj,
+        "page_obj": page_obj,
     }
     return render(request, "videos/videos_by_category.html", context)
 
@@ -174,9 +182,12 @@ def videos_by_tag(request, tag_slug):
         .select_related("uploader")
         .order_by("-upload_date")
     )
+    paginator = Paginator(videos, 12)
+    page_obj = paginator.get_page(request.GET.get("page"))
     context = {
         "tag": tag,
-        "videos": videos,
+        "videos": page_obj,
+        "page_obj": page_obj,
     }
     return render(request, "videos/videos_by_tag.html", context)
 

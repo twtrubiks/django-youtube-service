@@ -1,0 +1,15 @@
+{% if page_obj.has_other_pages %}
+<nav class="pagination" aria-label="Page navigation">
+    {% if page_obj.has_previous %}
+        <a href="?{% if query %}query={{ query }}&{% endif %}page={{ page_obj.previous_page_number }}" class="button button-secondary">&laquo; Previous</a>
+    {% endif %}
+
+    <span class="pagination-info">
+        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+
+    {% if page_obj.has_next %}
+        <a href="?{% if query %}query={{ query }}&{% endif %}page={{ page_obj.next_page_number }}" class="button button-secondary">Next &raquo;</a>
+    {% endif %}
+</nav>
+{% endif %}
