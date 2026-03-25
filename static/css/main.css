@@ -566,60 +566,6 @@ form button[type="submit"] {
     color: var(--text-muted);
 }
 
-/* Video card style (used in category/tag pages) */
-.video-card {
-    background-color: transparent;
-    border-radius: var(--radius);
-    overflow: hidden;
-    transition: transform var(--transition);
-}
-
-.video-card:hover {
-    transform: translateY(-4px);
-}
-
-.video-card a {
-    text-decoration: none;
-    color: inherit;
-}
-
-.video-card img.video-thumbnail {
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    object-fit: cover;
-    border-radius: var(--radius);
-    display: block;
-    background-color: var(--surface);
-}
-
-.video-card-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text);
-    margin: 10px 0 4px 0;
-    line-height: 1.4;
-}
-
-.video-card-uploader {
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin: 0 0 2px 0;
-}
-
-.video-card-uploader a {
-    color: var(--text-secondary);
-}
-
-.video-card-uploader a:hover {
-    color: var(--text);
-}
-
-.video-card-meta {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin: 0;
-}
-
 /* --- Video Detail Page --- */
 .video-player-container {
     width: 100%;
@@ -671,17 +617,18 @@ form button[type="submit"] {
     display: inline-block;
     padding: 4px 12px;
     background-color: var(--surface-2);
-    color: var(--accent) !important;
+    color: var(--accent);
     border-radius: 20px;
     font-size: 13px;
     font-weight: 500;
     transition: all var(--transition);
     margin: 2px 4px 2px 0;
+    text-decoration: none;
 }
 
 .tag-link:hover {
     background-color: var(--surface-hover);
-    color: var(--accent-hover) !important;
+    color: var(--accent-hover);
 }
 
 .video-description {
