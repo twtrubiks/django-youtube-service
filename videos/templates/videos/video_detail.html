@@ -1,6 +1,13 @@
 {% extends "users/base.html" %}
 
-{% block title %}{{ video.title }}{% endblock %}
+{% block title %}{{ video.title }} - StreamCraft{% endblock %}
+{% block meta_description %}{{ video.description|truncatewords:30|default:"Watch this video on StreamCraft" }}{% endblock %}
+{% block og_title %}{{ video.title }}{% endblock %}
+{% block og_description %}{{ video.description|truncatewords:30|default:"Watch this video on StreamCraft" }}{% endblock %}
+{% block og_type %}video{% endblock %}
+{% block og_extra %}
+{% if video.thumbnail %}<meta property="og:image" content="{{ video.thumbnail.url }}">{% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="container">
