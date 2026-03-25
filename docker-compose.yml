@@ -59,7 +59,7 @@ services:
 
     app:
       <<: *x-base-app
-      command: bash -c "python manage.py runserver 0.0.0.0:8000"
+      command: daphne -b 0.0.0.0 -p 8000 youtube_service.asgi:application
       restart: always
       ports:
         - "8000:8000"

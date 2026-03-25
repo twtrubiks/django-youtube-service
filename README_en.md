@@ -124,7 +124,7 @@ Comments
 * **Web Framework**: Django 6.0.3 (Python 3.13+)
 * **Asynchronous Processing**: Celery 5.6.2 + Redis
 * **Real-time Communication**: Django Channels 4.3.2 (WebSocket)
-* **Application Server**: Daphne (ASGI) + Gunicorn (WSGI)
+* **Application Server**: Daphne (ASGI)
 
 ### Data Storage
 

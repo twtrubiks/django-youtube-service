@@ -13,8 +13,8 @@ echo "Setup complete."
 
 # echo 'Create Super User'
 # python3 manage.py createsuperuser --noinput || echo "Super user already created"
-# echo 'Collect Static'
-# python3 manage.py collectstatic --noinput
+echo 'Collect Static'
+python3 manage.py collectstatic --noinput
 
 # 執行傳遞給此腳本的任何指令
 # "$@" 會獲取 Docker CMD 或 docker-compose command 中的指令

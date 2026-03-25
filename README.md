@@ -124,7 +124,7 @@ graph TB
 * **Web 框架**: Django 6.0.3 (Python 3.13+)
 * **異步處理**: Celery 5.6.2 + Redis
 * **實時通訊**: Django Channels 4.3.2 (WebSocket)
-* **應用伺服器**: Daphne (ASGI) + Gunicorn (WSGI)
+* **應用伺服器**: Daphne (ASGI)
 
 ### 數據存儲
 
