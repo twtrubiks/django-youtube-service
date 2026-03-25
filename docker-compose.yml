@@ -2,9 +2,7 @@
 x-base-app-setting: &x-base-app
   image: youtube-service-app
   build: .
-  environment:
-    - DB_HOST=django-postgres
-    - REDIS_HOST=redis-django
+  env_file: .env
   volumes:
     - .:/youtube_service
 
@@ -49,10 +47,11 @@ services:
       image: postgres:18
       # ports:
       #   - "5432:5432"
+      env_file: .env
       environment:
-        - POSTGRES_DB=postgres
-        - POSTGRES_USER=myuser
-        - POSTGRES_PASSWORD=password123
+        - POSTGRES_DB=${DB_NAME:-postgres}
+        - POSTGRES_USER=${DB_USER:-myuser}
+        - POSTGRES_PASSWORD=${DB_PASSWORD:-password123}
         - PGDATA=/var/lib/postgresql/data/pgdata
       volumes:
         - db-data:/var/lib/postgresql/data/pgdata
