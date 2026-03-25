@@ -1179,7 +1179,7 @@ class HLSFunctionalityTests(TestCase):
             mock_output_stream.run.return_value = (b"stdout", b"stderr")
 
             # 執行 HLS 生成
-            result = generate_hls_files(self.video, "/fake/input/path.mp4", "test_video")
+            result = generate_hls_files(self.video.id, "/fake/input/path.mp4", "test_video")
 
             # 驗證結果
             self.assertTrue(result)
@@ -1202,7 +1202,7 @@ class HLSFunctionalityTests(TestCase):
             mock_ffmpeg.input.side_effect = Exception("Mock ffmpeg error")
 
             # 執行函數，應該返回 False 而不是拋出異常
-            result = generate_hls_files(self.video, "/fake/path.mp4", "test")
+            result = generate_hls_files(self.video.id, "/fake/path.mp4", "test")
 
             # 驗證函數正確處理異常
             self.assertFalse(result)

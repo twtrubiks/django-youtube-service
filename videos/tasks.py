@@ -140,10 +140,8 @@ def process_video(self, video_id):
         # Step 1: 轉檔
         output_path = transcode_video(video, original_file_path, file_name_without_ext)
 
-        # Step 2: 產生 HLS
-        hls_success = generate_hls_files(video, output_path, file_name_without_ext)
-        if hls_success:
-            logger.info("影片 %s (ID: %s) HLS 生成成功", video.title, video_id)
+        # Step 2: 產生 HLS（非同步，不阻塞主流程）
+        generate_hls_files.delay(video_id, output_path, file_name_without_ext)
 
         # Step 3: 產生縮圖
         generate_thumbnail(video, output_path, file_name_without_ext)
@@ -176,24 +174,24 @@ def process_video(self, video_id):
         return f"處理影片 {video_id} 時發生未預期錯誤。詳見伺服器日誌。"
 
 
-def generate_hls_files(video, input_file_path, file_name_without_ext):
-    """
-    生成 HLS (HTTP Live Streaming) 文件
-    """
+@shared_task
+def generate_hls_files(video_id, input_file_path, file_name_without_ext):
+    """生成 HLS (HTTP Live Streaming) 文件（獨立 Celery 任務）。"""
     try:
-        # 創建 HLS 輸出目錄
+        video = Video.objects.get(id=video_id)
+    except Video.DoesNotExist:
+        logger.error("HLS 生成失敗：找不到影片 ID %s", video_id)
+        return False
+
+    try:
         hls_dir_name = "hls"
         video_hls_dir = f"{video.id}_{file_name_without_ext}"
         hls_output_directory = os.path.join(str(settings.MEDIA_ROOT), hls_dir_name, video_hls_dir)
+        os.makedirs(hls_output_directory, exist_ok=True)
 
-        if not os.path.exists(hls_output_directory):
-            os.makedirs(hls_output_directory)
-
-        # HLS 播放清單文件名
         playlist_filename = "playlist.m3u8"
         playlist_path = os.path.join(hls_output_directory, playlist_filename)
 
-        # 生成 HLS 文件
         logger.info("開始為影片 %s (ID: %s) 生成 HLS 文件...", video.title, video.id)
         start_time = time.time()
 
@@ -202,20 +200,18 @@ def generate_hls_files(video, input_file_path, file_name_without_ext):
             .output(
                 playlist_path,
                 format="hls",
-                hls_time=10,  # 每個片段 10 秒
-                hls_list_size=0,  # 保留所有片段在播放清單中
+                hls_time=10,
+                hls_list_size=0,
                 hls_segment_filename=os.path.join(str(hls_output_directory), "segment_%03d.ts"),
             )
             .run(capture_stdout=True, capture_stderr=True, overwrite_output=True)
         )
 
-        end_time = time.time()
-        logger.info("影片 %s (ID: %s) HLS 文件生成完成，耗時: %.2f 秒", video.title, video.id, end_time - start_time)
+        elapsed = time.time() - start_time
+        logger.info("影片 %s (ID: %s) HLS 文件生成完成，耗時: %.2f 秒", video.title, video.id, elapsed)
 
-        # 更新影片模型的 HLS 路徑
         video.hls_path = os.path.join(hls_dir_name, video_hls_dir, playlist_filename)
-        video.save()
-
+        video.save(update_fields=["hls_path"])
         return True
 
     except Exception:
