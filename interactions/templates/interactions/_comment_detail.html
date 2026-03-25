@@ -17,7 +17,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="parent_comment_id" value="{{ comment.id }}">
                 <div>
-                    <textarea name="content" rows="3" placeholder="Write a reply..." required style="width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background-color: var(--surface); color: var(--text); font-family: 'Poppins', sans-serif; font-size: 14px; resize: vertical;"></textarea>
+                    <textarea name="content" rows="3" placeholder="Write a reply..." required aria-label="Reply to {{ comment.user.username }}" style="width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background-color: var(--surface); color: var(--text); font-family: 'Poppins', sans-serif; font-size: 14px; resize: vertical;"></textarea>
                 </div>
                 <button type="submit" name="submit_reply" value="true" class="button button-small" style="margin-top: 8px;">Post Reply</button>
             </form>

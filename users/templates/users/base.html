@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,14 +20,14 @@
 </head>
 <body>
     <header>
-        <h1>
+        <div class="site-logo">
             <a href="{% url 'videos:home' %}">
                 <svg class="logo-icon" viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
                 </svg>
                 StreamCraft
             </a>
-        </h1>
+        </div>
         <form method="GET" action="{% url 'videos:search_videos' %}" class="header-search-form">
             <input type="text" name="query" placeholder="Search videos..." value="{{ request.GET.query }}">
             <button type="submit" aria-label="Search">

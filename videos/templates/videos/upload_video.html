@@ -15,7 +15,7 @@
                     {% if field.name == 'tags' %}
                         <div class="tag-input-container" data-original-input-id="{{ field.auto_id }}">
                             <div class="tag-pills-container"></div>
-                            <input type="text" class="tag-text-input" placeholder="Add a tag and press Enter or comma">
+                            <input type="text" class="tag-text-input" placeholder="Add a tag and press Enter or comma" aria-label="Add tags">
                         </div>
                         <div style="display: none;">
                             {{ field }}
