@@ -121,8 +121,8 @@
         }, 4000);
     }
     </script>
-    <script src="{% static 'js/notifications.js' %}"></script>
     {% if user.is_authenticated %}
+    <script src="{% static 'js/notifications.js' %}"></script>
     {{ user.id|json_script:"current-user-id" }}
     <script>
         const currentLoggedInUserId = JSON.parse(document.getElementById('current-user-id').textContent);
