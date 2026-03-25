@@ -1332,3 +1332,31 @@ class HLSViewTests(TestCase):
             self.assertEqual(response["Content-Type"], "video/mp2t")
             self.assertEqual(response["Cache-Control"], "public, max-age=3600")
             self.assertEqual(response.content, fake_segment_data)
+
+    def test_hls_segment_path_traversal_blocked(self):
+        """測試路徑穿越攻擊被阻擋（Django URL 路由已阻止含 / 的 segment_name）"""
+        # <str:segment_name> 不允許 /，所以 ../../ 無法通過路由
+        # 驗證不含 / 但嘗試穿越的 segment name 也會被 realpath 檢查攔截
+        response = self.client.get(
+            reverse("videos:hls_segment", args=[self.video_with_hls.id, "..%2F..%2Fetc%2Fpasswd"])
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_hls_playlist_anonymous_private_video_blocked(self):
+        """測試匿名使用者無法存取私人影片 HLS"""
+        self.client.logout()
+        response = self.client.get(reverse("videos:hls_playlist", args=[self.private_video.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_hls_segment_other_user_private_video_blocked(self):
+        """測試非擁有者無法存取私人影片 HLS 片段"""
+        self.client.login(username="other_user", password="password123")
+        response = self.client.get(reverse("videos:hls_segment", args=[self.private_video.id, "segment_001.ts"]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_video_status_endpoint(self):
+        """測試影片狀態 API"""
+        response = self.client.get(reverse("videos:video_status", args=[self.video_with_hls.id]))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("status", data)
