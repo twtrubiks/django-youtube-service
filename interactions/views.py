@@ -1,3 +1,5 @@
+import logging
+
 import pytz
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -15,6 +17,8 @@ from videos.models import Video
 
 from .forms import CommentForm
 from .models import Comment, LikeDislike, Notification, Subscription
+
+logger = logging.getLogger(__name__)
 
 
 @ratelimit(key="user", rate="30/m", method="POST", block=True)
@@ -162,7 +166,7 @@ def toggle_subscription(request, user_id_to_subscribe):
         if hasattr(user_to_subscribe_to, "profile") and user_to_subscribe_to.profile is not None:
             subscriber_count_val = user_to_subscribe_to.profile.subscribers_count()
     except Exception:
-        pass
+        logger.warning("Failed to get subscribers_count for user %s", user_id_to_subscribe, exc_info=True)
 
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         return JsonResponse(
@@ -196,6 +200,9 @@ def get_notifications(request):
                 aware_utc_ts = ts.replace(tzinfo=pytz.utc)
                 timestamp_str = aware_utc_ts.isoformat()
             except Exception:
+                logger.warning(
+                    "Unexpected error converting notification timestamp for id=%s", notification.id, exc_info=True
+                )
                 aware_utc_ts = ts.replace(tzinfo=pytz.utc)
                 timestamp_str = aware_utc_ts.isoformat()
         else:
