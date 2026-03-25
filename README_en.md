@@ -115,6 +115,7 @@ Comments
   * Video visibility settings (Public/Private/Unlisted)
   * User authentication and authorization
   * CSRF protection and security middleware
+  * Container runs as non-root user (UID=1000), following Docker security best practices
 
 ## 🛠️ Technology Stack
 
