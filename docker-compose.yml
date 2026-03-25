@@ -38,7 +38,7 @@ services:
       # docker compose up   # 啟動常規服務，跳過測試。。
       # docker compose --profile testing up # 啟動所有 被標記 profile: "testing" 的服務
       <<: *x-base-app
-      command: bash -c "coverage run manage.py test && coverage report && coverage html"
+      command: bash -c "pip install -q -r requirements-dev.txt && coverage run manage.py test && coverage report && coverage html"
       # command: bash -c "python manage.py test videos"
       profiles:
         - "testing"
