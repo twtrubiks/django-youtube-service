@@ -51,8 +51,8 @@ def _get_exception_message(e):
     return f"{type(e).__name__}: {object.__repr__(e)}"
 
 
-@shared_task
-def process_video(video_id):
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def process_video(self, video_id):
     """
     處理影片任務：包含影片轉檔、縮圖產生，以及 HLS 串流格式轉換。
 
@@ -64,6 +64,11 @@ def process_video(video_id):
     """
     try:
         video = Video.objects.get(id=video_id)
+
+        # 冪等性檢查：如果影片已處理完成，跳過
+        if video.processing_status == "completed":
+            return f"影片 {video_id} 已處理完成，跳過重複處理。"
+
         video.processing_status = "processing"
         video.save()
         logger.info(f"開始處理影片: {video.title} (ID: {video_id})")
@@ -219,6 +224,8 @@ def process_video(video_id):
     except Video.DoesNotExist:
         print(f"ERROR: 錯誤：找不到 ID 為 {video_id} 的影片。")
         return f"錯誤：找不到 ID 為 {video_id} 的影片。"
+    except (OSError, ffmpeg.Error) as e:
+        raise self.retry(exc=e) from e
     except Exception as e:
         error_type_name = type(e).__name__
         # 這裡需要特別處理 TestSpecificFFmpegError，因為它在測試中被用來模擬 ffmpeg.Error
