@@ -295,9 +295,11 @@ button, input[type="submit"], .button {
     letter-spacing: 0;
 }
 
-button:hover, input[type="submit"]:hover, .button:hover {
-    background-color: var(--primary-hover);
-    transform: translateY(-1px);
+@media (hover: hover) {
+    button:hover, input[type="submit"]:hover, .button:hover {
+        background-color: var(--primary-hover);
+        transform: translateY(-1px);
+    }
 }
 
 button:active, input[type="submit"]:active, .button:active {
