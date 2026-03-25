@@ -35,6 +35,7 @@ def health_check(request):
 
 urlpatterns = [
     path("health/", health_check, name="health_check"),
+    path("", include("django_prometheus.urls")),
     path("admin/", admin.site.urls),
     path("users/", include("users.urls", namespace="users")),
     path("videos/", include("videos.urls", namespace="videos")),

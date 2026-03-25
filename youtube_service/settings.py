@@ -59,9 +59,11 @@ INSTALLED_APPS = [
     "videos.apps.VideosConfig",
     "interactions.apps.InteractionsConfig",
     "taggit",
+    "django_prometheus",
 ]
 
 MIDDLEWARE = [
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -70,6 +72,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 
 ROOT_URLCONF = "youtube_service.urls"
@@ -263,3 +266,8 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_TASK_TIME_LIMIT = 1800  # 30 分鐘硬限制
 CELERY_TASK_SOFT_TIME_LIMIT = 1500  # 25 分鐘軟限制
+
+# OpenTelemetry (enabled when OTEL_EXPORTER_OTLP_ENDPOINT is set)
+from youtube_service.otel import configure_opentelemetry  # noqa: E402
+
+configure_opentelemetry()
