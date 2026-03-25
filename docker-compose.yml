@@ -27,8 +27,10 @@ services:
       command: celery -A youtube_service worker -l info
       restart: always
       depends_on:
-        - app
-        - redis-django
+        app:
+          condition: service_started
+        redis-django:
+          condition: service_healthy
 
     test:
       # 這個服務專門用來跑測試
@@ -55,6 +57,11 @@ services:
         - PGDATA=/var/lib/postgresql/data/pgdata
       volumes:
         - db-data:/var/lib/postgresql/data/pgdata
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-myuser}"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
 
     app:
       <<: *x-base-app
@@ -63,8 +70,10 @@ services:
       ports:
         - "8000:8000"
       depends_on:
-        - redis-django
-        - django-postgres
+        redis-django:
+          condition: service_healthy
+        django-postgres:
+          condition: service_healthy
 
 volumes:
     redis-django-data:
