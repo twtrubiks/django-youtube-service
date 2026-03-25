@@ -5,7 +5,7 @@ import os
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
+from django.db.models import F, Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -65,11 +65,10 @@ def video_detail(request, video_id):
     comments = Comment.objects.filter(video=video).order_by("-timestamp")
     comment_form = CommentForm()
 
-    # Increment view count if not already viewed in this session
     viewed_video_session_key = f"viewed_video_{video.id}"
     if not request.session.get(viewed_video_session_key, False):
-        video.views_count += 1
-        video.save(update_fields=["views_count"])
+        Video.objects.filter(pk=video.pk).update(views_count=F("views_count") + 1)
+        video.refresh_from_db(fields=["views_count"])
         request.session[viewed_video_session_key] = True
 
     # Get like/dislike counts
