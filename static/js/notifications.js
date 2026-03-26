@@ -273,7 +273,7 @@ async function fetchAndDisplayHistoricalNotifications() {
             return;
         }
         const data = await response.json();
-        const notifications = (data.data && data.data.notifications) || data.notifications || [];
+        const notifications = data.data.notifications || [];
 
         const dropdownList = document.getElementById('notification-dropdown-list');
         if(dropdownList) dropdownList.innerHTML = ''; // Clear previous items before loading new ones
