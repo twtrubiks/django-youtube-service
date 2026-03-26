@@ -768,6 +768,10 @@ form button[type="submit"] {
     color: var(--text-secondary);
 }
 
+.comment-form {
+    margin-bottom: 24px;
+}
+
 .comment-form textarea {
     min-height: 60px;
     margin-bottom: 8px;
