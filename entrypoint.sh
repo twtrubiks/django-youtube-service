@@ -4,7 +4,7 @@
 set -e
 
 echo 'Run migration'
-if [ "${DEBUG,,}" = "true" ]; then
+if [ "$(echo "$DEBUG" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
     echo 'Development mode: running makemigrations'
     python manage.py makemigrations
 fi
