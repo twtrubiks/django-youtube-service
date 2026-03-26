@@ -84,6 +84,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 fileInput.value = '';
                 return;
             }
+
+            // Auto-fill title with filename (without extension) if title is empty
+            const titleInput = document.getElementById('id_title');
+            if (titleInput && !titleInput.value.trim()) {
+                const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+                titleInput.value = nameWithoutExt;
+            }
         });
 
         form.addEventListener('submit', function() {
