@@ -148,7 +148,7 @@ def process_video(self, video_id):
 
         video.processing_status = "completed"
         video.save(update_fields=["processing_status"])
-        logger.info("影片 %s (ID: %s) 所有處理完成", video.title, video_id)
+        logger.info("影片 %s (ID: %s) 轉檔與縮圖完成（HLS 仍在背景生成中）", video.title, video_id)
         return f"影片 {video.title} (ID: {video_id}) 處理成功。"
 
     except Video.DoesNotExist:
