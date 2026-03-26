@@ -23,24 +23,30 @@ graph TB
         A --> C[WebSocket Client]
     end
 
+    subgraph "Reverse Proxy Layer"
+        P[Nginx] --> D
+    end
+
     subgraph "Application Layer"
-        D[Django Web Application] --> E[Django Channels]
+        D[Django / Daphne ASGI] --> E[Django Channels]
         D --> F[Celery Worker]
     end
 
     subgraph "Service Layer"
-        G[Redis] --> H[Message Queue]
-        G --> I[Channel Layer]
+        G[Redis] --> H[Message Queue / Broker]
+        G --> I[Channel Layer / Cache]
         J[PostgreSQL] --> K[Main Database]
+        BK[Backup Container] --> J
     end
 
     subgraph "Storage Layer"
-        L[Local Storage] --> M[Video Files]
+        L[Local Storage / S3 / MinIO] --> M[Video Files]
         L --> N[HLS Segments]
         L --> O[Thumbnail Images]
     end
 
-    B --> D
+    A --> P
+    B --> P
     C --> E
     E --> I
     F --> H
@@ -49,31 +55,25 @@ graph TB
     F --> N
 ```
 
-This project was developed as a practical implementation using [Roo-Code](https://github.com/RooCodeInc/Roo-Code), demonstrating the best architectural patterns for modern web applications.
+This project was developed as a practical implementation using [Roo-Code](https://github.com/RooCodeInc/Roo-Code), demonstrating the best architectural patterns for modern web applications. Subsequent fixes and improvements were made with [Claude Code](https://claude.com/claude-code).
 
 ## Screenshots
 
 Main Page (The little bell in the top right corner is a real-time notification feature implemented using Django Channels)
 
-![alt tag](https://cdn.imgpile.com/f/2CX4aYb_xl.png)
-
-![alt tag](https://cdn.imgpile.com/f/kHR5OyU_xl.png)
+![alt tag](https://cdn.imgpile.com/f/hKDF6qO_xl.png)
 
 Watch Page
 
-![alt tag](https://cdn.imgpile.com/f/ZRbXFlW_xl.png)
+![alt tag](https://cdn.imgpile.com/f/N9ZlusX_xl.png)
 
 Profile Page
 
-![alt tag](https://cdn.imgpile.com/f/yJYeDUp_xl.png)
-
-Upload Page
-
-![alt tag](https://cdn.imgpile.com/f/J36PtqR_xl.png)
+![alt tag](https://cdn.imgpile.com/f/eooZDqW_xl.png)
 
 Comments
 
-![alt tag](https://cdn.imgpile.com/f/QHTBTrN_xl.png)
+![alt tag](https://cdn.imgpile.com/f/mAIrOVd_xl.png)
 
 ## ✨ Core Features
 
@@ -100,6 +100,8 @@ Comments
   * Like/dislike voting mechanism
   * Channel subscriptions and notifications
   * Video search and tag-based categorization
+  * PostgreSQL full-text search with relevance ranking
+  * Search bar autocomplete suggestions (300ms debounce)
 
 ### ⚡ Real-time Communication System
 
@@ -114,7 +116,10 @@ Comments
 * **Multi-level Permission Control**:
   * Video visibility settings (Public/Private/Unlisted)
   * User authentication and authorization
+  * Password strength validation on registration, rejecting short or common passwords
   * CSRF protection and security middleware
+  * Production security headers: HSTS, SSL redirect, Secure Cookies
+  * API rate limiting: IP-based limits on login/registration to prevent brute force; per-user limits on interactions to prevent abuse
   * Container runs as non-root user (UID=1000), following Docker security best practices
 
 ## 🛠️ Technology Stack
@@ -129,8 +134,8 @@ Comments
 ### Data Storage
 
 * **Main Database**: PostgreSQL 18 (Production) / SQLite (Development)
-* **Caching System**: Redis (Message Queue + Channel Layer)
-* **File Storage**: Local Storage (extendable to AWS S3/GCS)
+* **Caching System**: Redis (Message Queue + Channel Layer + Session cache)
+* **File Storage**: Local storage, or switch to S3/MinIO object storage via django-storages
 
 ### Frontend Technology
 
@@ -144,7 +149,9 @@ Comments
 * **Video Processing**: FFmpeg (Python wrapper)
 * **Tagging System**: django-taggit 6.1.0
 * **Image Processing**: Pillow 12.1.1
-* **Code Quality**: Ruff (Formatter) + Coverage (Test Coverage)
+* **Static Files**: WhiteNoise (production static file serving)
+* **Code Quality**: Ruff (Formatter) + pre-commit hooks + Coverage (Test Coverage)
+* **Observability** (optional): django-prometheus (metrics) + OpenTelemetry (distributed tracing)
 
 ## 📊 Performance Metrics
 
@@ -167,15 +174,45 @@ Comments
 docker-compose up --build
 ```
 
+#### Production Deployment
+
+```bash
+# Start production environment (with Nginx reverse proxy)
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+> **Note**: Production does not run `makemigrations` automatically. Generate migration files in development and commit them before deploying.
+
+Optional dependencies can be installed by adding the corresponding requirements files in the Dockerfile or at runtime:
+
+* `requirements-s3.txt` — S3/MinIO object storage support
+* `requirements-otel.txt` — OpenTelemetry distributed tracing
+
 #### Service Components Description
 
 **Web Application**: Main Django service (port 8000)
 
 **Celery Worker**: Asynchronous task processing
 
-**Redis**: Message queue and cache
+**Redis**: Message queue and cache (AOF persistence enabled)
 
-**PostgreSQL**: Main database
+**PostgreSQL**: Main database (with healthcheck; daily automated backup retaining 7 copies)
+
+**Flower** (optional): Celery monitoring dashboard, launched via the monitoring profile
+
+```bash
+docker compose --profile monitoring up -d
+```
+
+Once started, visit [http://127.0.0.1:5555](http://127.0.0.1:5555) to view task status.
+
+**DB Backup** (optional): Automated daily PostgreSQL backup, launched via the backup profile
+
+```bash
+docker compose --profile backup up -d
+```
+
+Once started, it runs in the background and performs a backup every 24 hours, retaining the 7 most recent copies.
 
 ### Method 2: Local Development Environment
 
@@ -188,20 +225,37 @@ docker-compose up --build
 
 #### Environment Variables
 
-When developing locally, Django connects to PostgreSQL and Redis on `localhost` by default. You can override the host by setting the `DB_HOST` and `REDIS_HOST` environment variables.
+The project includes a `.env.example` template. Copy and modify it before use:
+
+```bash
+cp .env.example .env
+```
+
+Key environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `SECRET_KEY` | (required) | Django secret key |
+| `DEBUG` | `True` | Enable debug mode |
 | `DB_HOST` | `localhost` | PostgreSQL host address |
+| `DB_NAME` | `postgres` | Database name |
+| `DB_USER` | `myuser` | Database user |
+| `DB_PASSWORD` | `password123` | Database password |
 | `REDIS_HOST` | `localhost` | Redis host address |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Allowed hostnames (comma-separated) |
+| `CELERY_CONCURRENCY` | `2` | Celery Worker concurrency |
+| `ENABLE_PROMETHEUS` | (depends on DEBUG) | Enable Prometheus metrics collection |
+| `USE_S3` | (empty) | Set to `true` to enable S3/MinIO object storage |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | (empty) | OpenTelemetry collector endpoint; leave empty to disable |
 
-When deploying with Docker, these are automatically configured via `docker-compose.yml` — no manual setup needed.
+When deploying with Docker, connection-related variables are automatically configured via `docker-compose.yml` — no manual setup needed.
 
 #### Installation Steps
 
 ```bash
 # 1. Install dependencies
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # Dev tools: ruff, coverage, pre-commit
 
 # 2. Database migrations
 python manage.py migrate
@@ -223,6 +277,8 @@ python manage.py runserver
 **Main Page**: [http://127.0.0.1:8000/videos/](http://127.0.0.1:8000/videos/)
 
 **Admin Backend**: [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
+
+**Health Check**: [http://127.0.0.1:8000/health/](http://127.0.0.1:8000/health/)
 
 ## Running Tests
 
@@ -276,24 +332,41 @@ youtube_service/
 ├── videos/                   # Core video features
 │   ├── models.py            # Video, Category models
 │   ├── views.py             # Upload, watch, search
-│   ├── tasks.py             # Celery asynchronous tasks
+│   ├── tasks.py             # Celery async tasks (transcode, thumbnail, HLS)
 │   └── templates/           # Video-related templates
 ├── interactions/            # Social interaction features
 │   ├── models.py            # Comment, LikeDislike, Subscription, Notification
 │   ├── consumers.py         # WebSocket consumers
 │   ├── signals.py           # Django signal handling
+│   ├── tasks.py             # Notification async tasks
 │   └── routing.py           # WebSocket routing
 ├── youtube_service/         # Project configuration
 │   ├── settings.py          # Django settings
 │   ├── celery.py            # Celery configuration
-│   ├── asgi.py              # ASGI configuration
+│   ├── asgi.py              # ASGI configuration (Daphne)
+│   ├── otel.py              # OpenTelemetry initialization (optional)
 │   └── urls.py              # URL routing
+├── nginx/                   # Nginx reverse proxy config (production)
+│   └── nginx.conf
+├── scripts/                 # Operations scripts
+│   └── backup_db.sh         # PostgreSQL daily backup
 ├── static/                  # Static assets
+│   ├── css/main.css
+│   └── js/
+│       ├── notifications.js     # Real-time notification WebSocket client
+│       └── video_interactions.js # Video page interaction logic
 ├── media/                   # Media files
 │   ├── videos/              # Video files
 │   ├── hls/                 # HLS streaming files
 │   └── thumbnails/          # Thumbnail files
-└── templates/               # Global templates
+├── templates/               # Global templates
+├── docker-compose.yml       # Development orchestration
+├── docker-compose.prod.yml  # Production orchestration (Nginx + multi-instance)
+├── requirements.txt         # Production dependencies
+├── requirements-dev.txt     # Development dependencies (ruff, coverage, pre-commit)
+├── requirements-s3.txt      # S3/MinIO optional dependencies
+├── requirements-otel.txt    # OpenTelemetry optional dependencies
+└── pyproject.toml           # Ruff configuration
 ```
 
 ### Data Model Relationships

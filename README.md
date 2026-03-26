@@ -23,24 +23,30 @@ graph TB
         A --> C[WebSocket 客戶端]
     end
 
+    subgraph "反向代理層"
+        P[Nginx] --> D
+    end
+
     subgraph "應用層"
-        D[Django Web 應用] --> E[Django Channels]
+        D[Django / Daphne ASGI] --> E[Django Channels]
         D --> F[Celery Worker]
     end
 
     subgraph "服務層"
-        G[Redis] --> H[消息佇列]
-        G --> I[頻道層]
+        G[Redis] --> H[消息佇列 / Broker]
+        G --> I[頻道層 / Cache]
         J[PostgreSQL] --> K[主資料庫]
+        BK[Backup 容器] --> J
     end
 
     subgraph "存儲層"
-        L[本地存儲] --> M[影片文件]
+        L[本地存儲 / S3 / MinIO] --> M[影片文件]
         L --> N[HLS 片段]
         L --> O[縮圖圖片]
     end
 
-    B --> D
+    A --> P
+    B --> P
     C --> E
     E --> I
     F --> H
@@ -49,31 +55,25 @@ graph TB
     F --> N
 ```
 
-這個專案是使用 [Roo-Code](https://github.com/RooCodeInc/Roo-Code) 完成的開發實踐，展示了現代 Web 應用的最佳架構模式。
+這個專案是使用 [Roo-Code](https://github.com/RooCodeInc/Roo-Code) 完成的開發實踐，展示了現代 Web 應用的最佳架構模式。後續修正與改進改用 [Claude Code](https://claude.com/claude-code) 完成。
 
 ## 畫面截圖
 
 主畫面 (右上角的小鈴鐺是使用 Django Channels 實作的即時通知 )
 
-![alt tag](https://cdn.imgpile.com/f/2CX4aYb_xl.png)
-
-![alt tag](https://cdn.imgpile.com/f/kHR5OyU_xl.png)
+![alt tag](https://cdn.imgpile.com/f/hKDF6qO_xl.png)
 
 觀看頁面
 
-![alt tag](https://cdn.imgpile.com/f/ZRbXFlW_xl.png)
+![alt tag](https://cdn.imgpile.com/f/N9ZlusX_xl.png)
 
 個人主頁
 
-![alt tag](https://cdn.imgpile.com/f/yJYeDUp_xl.png)
-
-上傳頁面
-
-![alt tag](https://cdn.imgpile.com/f/J36PtqR_xl.png)
+![alt tag](https://cdn.imgpile.com/f/eooZDqW_xl.png)
 
 留言
 
-![alt tag](https://cdn.imgpile.com/f/QHTBTrN_xl.png)
+![alt tag](https://cdn.imgpile.com/f/mAIrOVd_xl.png)
 
 ## ✨ 核心功能特色
 
@@ -100,6 +100,8 @@ graph TB
   * 點讚/不喜歡投票機制
   * 頻道訂閱與通知
   * 影片搜尋與標籤分類
+  * PostgreSQL 全文搜尋，按相關性排序
+  * 搜尋列自動完成建議（300ms debounce）
 
 ### ⚡ 實時通信系統
 
@@ -114,7 +116,10 @@ graph TB
 * **多層級權限控制**:
   * 影片可見性設定 (公開/私人/未列出)
   * 用戶認證與授權
+  * 註冊表單密碼強度驗證，拒絕過短或常見密碼
   * CSRF 保護與安全中間件
+  * 生產環境啟用 HSTS、SSL 導向、Secure Cookie
+  * API 速率限制：登入/註冊依 IP 限制防暴力破解，互動操作依使用者限制防濫用
   * 容器以非 root 使用者運行（UID=1000），符合 Docker 安全最佳實踐
 
 ## 🛠️ 技術架構棧
@@ -129,8 +134,8 @@ graph TB
 ### 數據存儲
 
 * **主資料庫**: PostgreSQL 18 (生產環境) / SQLite (開發)
-* **緩存系統**: Redis (消息佇列 + 頻道層)
-* **文件存儲**: 本地存儲 (可擴展至 AWS S3/GCS)
+* **緩存系統**: Redis (消息佇列 + 頻道層 + Session cache)
+* **文件存儲**: 本地存儲，或透過 django-storages 切換至 S3/MinIO 物件儲存
 
 ### 前端技術
 
@@ -144,7 +149,9 @@ graph TB
 * **影片處理**: FFmpeg (Python wrapper)
 * **標籤系統**: django-taggit 6.1.0
 * **圖像處理**: Pillow 12.1.1
-* **代碼品質**: Ruff (格式化) + Coverage (測試覆蓋率)
+* **靜態檔案**: WhiteNoise (生產環境靜態檔案服務)
+* **代碼品質**: Ruff (格式化) + pre-commit hooks + Coverage (測試覆蓋率)
+* **可觀測性** (可選): django-prometheus (指標) + OpenTelemetry (分散式追蹤)
 
 ## 📊 性能指標
 
@@ -176,15 +183,36 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 > **注意**：生產環境不會自動執行 `makemigrations`。若 model 有變更，請在開發環境產生 migration 檔案並 commit 後再部署。
 
+可選依賴可在 Dockerfile 或執行時額外安裝：
+
+* `requirements-s3.txt` — S3/MinIO 物件儲存支援
+* `requirements-otel.txt` — OpenTelemetry 分散式追蹤
+
 #### 服務組件說明
 
 **Web 應用**: Django 主服務 (端口 8000)
 
 **Celery Worker**: 異步任務處理
 
-**Redis**: 消息佇列與緩存
+**Redis**: 消息佇列與緩存（已啟用 AOF 持久化）
 
-**PostgreSQL**: 主資料庫
+**PostgreSQL**: 主資料庫（含 healthcheck，每日自動備份保留 7 份）
+
+**Flower** (可選): Celery 監控面板，透過 monitoring profile 啟動
+
+```bash
+docker compose --profile monitoring up -d
+```
+
+啟動後可存取 [http://127.0.0.1:5555](http://127.0.0.1:5555) 查看任務狀態。
+
+**DB Backup** (可選): PostgreSQL 每日自動備份，透過 backup profile 啟動
+
+```bash
+docker compose --profile backup up -d
+```
+
+啟動後會在背景持續運行，每 24 小時自動執行一次備份，保留最近 7 份。
 
 ### 方式二：本地開發環境
 
@@ -200,20 +228,37 @@ FFmpeg (影片處理)
 
 #### 環境變數設定
 
-本機開發時，Django 預設連線 `localhost` 的 PostgreSQL 和 Redis。若需指定其他 host，可設定環境變數 `DB_HOST` 和 `REDIS_HOST`。
+專案提供 `.env.example` 範本檔，使用前請先複製並依需求修改：
+
+```bash
+cp .env.example .env
+```
+
+主要環境變數說明：
 
 | 環境變數 | 預設值 | 說明 |
 |----------|--------|------|
+| `SECRET_KEY` | (必填) | Django secret key |
+| `DEBUG` | `True` | 是否啟用除錯模式 |
 | `DB_HOST` | `localhost` | PostgreSQL 主機位址 |
+| `DB_NAME` | `postgres` | 資料庫名稱 |
+| `DB_USER` | `myuser` | 資料庫使用者 |
+| `DB_PASSWORD` | `password123` | 資料庫密碼 |
 | `REDIS_HOST` | `localhost` | Redis 主機位址 |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | 允許的主機名稱（逗號分隔） |
+| `CELERY_CONCURRENCY` | `2` | Celery Worker 並行處理數 |
+| `ENABLE_PROMETHEUS` | (依 DEBUG) | 是否啟用 Prometheus 指標收集 |
+| `USE_S3` | (空) | 設為 `true` 啟用 S3/MinIO 物件儲存 |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | (空) | OpenTelemetry collector endpoint，留空則停用 |
 
-Docker 部署時會透過 `docker-compose.yml` 自動設定，無需手動配置。
+Docker 部署時會透過 `docker-compose.yml` 自動設定連線相關變數，無需手動配置。
 
 #### 安裝步驟
 
 ```bash
 # 1. 安裝依賴
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # 開發工具：ruff、coverage、pre-commit
 
 # 2. 資料庫遷移
 python manage.py migrate
@@ -235,6 +280,8 @@ python manage.py runserver
 **主頁**: [http://127.0.0.1:8000/videos/](http://127.0.0.1:8000/videos/)
 
 **管理後台**: [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
+
+**健康檢查**: [http://127.0.0.1:8000/health/](http://127.0.0.1:8000/health/)
 
 ## 運行測試
 
@@ -288,24 +335,41 @@ youtube_service/
 ├── videos/                   # 影片核心功能
 │   ├── models.py            # Video, Category 模型
 │   ├── views.py             # 上傳、播放、搜尋
-│   ├── tasks.py             # Celery 異步任務
+│   ├── tasks.py             # Celery 異步任務（轉檔、縮圖、HLS）
 │   └── templates/           # 影片相關模板
 ├── interactions/            # 社交互動功能
 │   ├── models.py            # Comment, LikeDislike, Subscription, Notification
 │   ├── consumers.py         # WebSocket 消費者
 │   ├── signals.py           # Django 信號處理
+│   ├── tasks.py             # 通知發送異步任務
 │   └── routing.py           # WebSocket 路由
 ├── youtube_service/         # 專案配置
 │   ├── settings.py          # Django 設定
 │   ├── celery.py            # Celery 配置
-│   ├── asgi.py              # ASGI 配置
+│   ├── asgi.py              # ASGI 配置（Daphne）
+│   ├── otel.py              # OpenTelemetry 初始化（可選）
 │   └── urls.py              # URL 路由
+├── nginx/                   # Nginx 反向代理設定（生產環境）
+│   └── nginx.conf
+├── scripts/                 # 維運腳本
+│   └── backup_db.sh         # PostgreSQL 每日備份
 ├── static/                  # 靜態資源
+│   ├── css/main.css
+│   └── js/
+│       ├── notifications.js     # 即時通知 WebSocket 客戶端
+│       └── video_interactions.js # 影片頁互動邏輯
 ├── media/                   # 媒體文件
 │   ├── videos/              # 影片文件
 │   ├── hls/                 # HLS 串流文件
 │   └── thumbnails/          # 縮圖文件
-└── templates/               # 全局模板
+├── templates/               # 全局模板
+├── docker-compose.yml       # 開發環境編排
+├── docker-compose.prod.yml  # 生產環境編排（Nginx + 多實例）
+├── requirements.txt         # 生產依賴
+├── requirements-dev.txt     # 開發依賴（ruff、coverage、pre-commit）
+├── requirements-s3.txt      # S3/MinIO 可選依賴
+├── requirements-otel.txt    # OpenTelemetry 可選依賴
+└── pyproject.toml           # Ruff 設定
 ```
 
 ### 數據模型關係
