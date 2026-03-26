@@ -20,6 +20,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.db import connection
 from django.http import JsonResponse
+from django.shortcuts import redirect
 from django.urls import include, path
 
 
@@ -34,6 +35,7 @@ def health_check(request):
 
 
 urlpatterns = [
+    path("", lambda request: redirect("videos:home"), name="root"),
     path("health/", health_check, name="health_check"),
     path("admin/", admin.site.urls),
     path("users/", include("users.urls", namespace="users")),
