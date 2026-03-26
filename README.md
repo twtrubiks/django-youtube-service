@@ -167,6 +167,15 @@ graph TB
 docker-compose up --build
 ```
 
+#### 生產環境部署
+
+```bash
+# 啟動生產環境（含 Nginx 反向代理）
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+> **注意**：生產環境不會自動執行 `makemigrations`。若 model 有變更，請在開發環境產生 migration 檔案並 commit 後再部署。
+
 #### 服務組件說明
 
 **Web 應用**: Django 主服務 (端口 8000)

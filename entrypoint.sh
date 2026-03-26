@@ -4,6 +4,10 @@
 set -e
 
 echo 'Run migration'
+if [ "${DEBUG,,}" = "true" ]; then
+    echo 'Development mode: running makemigrations'
+    python manage.py makemigrations
+fi
 python manage.py migrate
 
 echo "Running one-time setup (create_category)..."
