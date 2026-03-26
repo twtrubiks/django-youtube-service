@@ -31,11 +31,7 @@
     <div class="video-player-container">
         {% if video.processing_status == 'completed' and video.video_file %}
         <video id="video-player" controls style="width: 100%; height: auto;">
-            {% if video.hls_path %}
-                <!-- HLS playlist loaded via JavaScript -->
-            {% else %}
-                <source src="{{ video.video_file.url }}" type="video/mp4">
-            {% endif %}
+            <source src="{{ video.video_file.url }}" type="video/mp4">
             Your browser does not support the video tag.
         </video>
         {% elif video.processing_status == 'failed' %}
