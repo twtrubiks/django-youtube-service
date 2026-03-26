@@ -80,7 +80,6 @@ services:
       image: postgres:18
       # ports:
       #   - "5432:5432"
-      env_file: .env
       environment:
         - POSTGRES_DB=${DB_NAME:-postgres}
         - POSTGRES_USER=${DB_USER:-myuser}
