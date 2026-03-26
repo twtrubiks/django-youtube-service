@@ -200,7 +200,7 @@ form.header-search-form button:hover,
     white-space: nowrap;
 }
 
-.header-nav-links ul {
+.header-nav-links > ul {
     list-style-type: none;
     padding: 0;
     margin: 0;
@@ -209,11 +209,11 @@ form.header-search-form button:hover,
     gap: 8px;
 }
 
-.header-nav-links ul li {
+.header-nav-links > ul > li {
     margin-left: 0;
 }
 
-.header-nav-links ul li a {
+.header-nav-links > ul > li > a {
     color: var(--text-secondary);
     text-decoration: none;
     font-weight: 500;
@@ -226,35 +226,35 @@ form.header-search-form button:hover,
     gap: 6px;
 }
 
-.header-nav-links ul li a:hover {
+.header-nav-links > ul > li > a:hover {
     color: var(--text);
     background-color: var(--surface-2);
     text-decoration: none;
 }
 
-.header-nav-links ul li a svg {
+.header-nav-links > ul > li > a svg {
     width: 18px;
     height: 18px;
     fill: currentColor;
 }
 
 /* Upload button special style */
-.header-nav-links ul li a.nav-upload-btn {
+.header-nav-links > ul > li > a.nav-upload-btn {
     background-color: var(--surface-2);
     color: var(--text);
 }
 
-.header-nav-links ul li a.nav-upload-btn:hover {
+.header-nav-links > ul > li > a.nav-upload-btn:hover {
     background-color: var(--surface-hover);
 }
 
 /* Notification item in nav */
-.header-nav-links ul li.notification-item {
+.header-nav-links > ul > li.notification-item {
     display: flex;
     align-items: center;
 }
 
-.header-nav-links ul li.notification-item .notification-bell-icon {
+.header-nav-links > ul > li.notification-item .notification-bell-icon {
     display: flex;
     align-items: center;
     padding: 8px;
@@ -264,7 +264,7 @@ form.header-search-form button:hover,
     cursor: pointer;
 }
 
-.header-nav-links ul li.notification-item .notification-bell-icon:hover {
+.header-nav-links > ul > li.notification-item .notification-bell-icon:hover {
     background-color: var(--surface-2);
 }
 
@@ -1051,11 +1051,14 @@ form button[type="submit"] {
     margin: 0;
     display: flex;
     flex-direction: column;
+    align-items: stretch;
+    gap: 0;
 }
 
 .notification-dropdown-list .notification-item {
     padding: 12px 16px;
     border-bottom: 1px solid var(--border);
+    border-left: 3px solid transparent;
     cursor: pointer;
     transition: background-color var(--transition);
     display: block;
@@ -1071,7 +1074,7 @@ form button[type="submit"] {
 
 .notification-dropdown-list .notification-item.unread {
     background-color: rgba(6, 95, 212, 0.04);
-    border-left: 3px solid var(--accent);
+    border-left-color: var(--accent);
 }
 
 /* --- Notification Item Content: Icon + Body Layout --- */
@@ -1305,7 +1308,7 @@ form button[type="submit"] {
 }
 
 .user-dropdown-menu ul li {
-    display: block !important;
+    display: block;
 }
 
 .user-dropdown-menu ul li:first-child {
@@ -1737,16 +1740,16 @@ hr {
         margin-left: 4px;
     }
 
-    .header-nav-links ul {
+    .header-nav-links > ul {
         gap: 0;
     }
 
-    .header-nav-links ul li a {
+    .header-nav-links > ul > li > a {
         padding: 6px;
         font-size: 13px;
     }
 
-    .header-nav-links ul li a .nav-text {
+    .header-nav-links > ul > li > a .nav-text {
         display: none;
     }
 
@@ -1804,7 +1807,7 @@ hr {
         min-width: 120px;
     }
 
-    .header-nav-links ul li a {
+    .header-nav-links > ul > li > a {
         padding: 6px;
     }
 }
