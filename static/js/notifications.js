@@ -129,84 +129,146 @@ function clearNotificationIndicator() { // Called when dropdown opens
     // markAllNotificationsAsReadAPI(); // We will call this explicitly in toggleNotificationDropdown
 }
 
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+const NOTIFICATION_ICONS = {
+    'new_video': `<div class="notification-icon notification-icon--video">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+        </svg>
+    </div>`,
+    'new_reply': `<div class="notification-icon notification-icon--reply">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/>
+        </svg>
+    </div>`,
+    'new_comment_on_video': `<div class="notification-icon notification-icon--comment">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M21.99 4c0-1.1-.89-2-1.99-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18z"/>
+        </svg>
+    </div>`,
+    'new_subscription': `<div class="notification-icon notification-icon--subscription">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+        </svg>
+    </div>`
+};
+
+const NOTIFICATION_ICON_GENERIC = `<div class="notification-icon notification-icon--generic">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+        <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+    </svg>
+</div>`;
+
+function getNotificationIcon(notificationType) {
+    return NOTIFICATION_ICONS[notificationType] || NOTIFICATION_ICON_GENERIC;
+}
+
+function buildCommentNotificationHTML(actorName, videoTitle, verb, content) {
+    return `
+        <span class="notification-detail-line">
+            <span class="notification-detail-value"><strong>${escapeHTML(actorName)}</strong> 在 <em>${escapeHTML(videoTitle)}</em> ${verb}</span>
+        </span>
+        <span class="notification-detail-quote">"${escapeHTML(content)}"</span>`;
+}
+
 function formatNotificationHTML(notification) {
-    // notification:
-    // - from WS: { id, message: {payload_obj}, link, is_read, timestamp, type: "outer_type" }
-    // - from DB (historical): { id, message: "json_string_payload", link, is_read, timestamp, type: undefined }
-
     let payload = notification.message;
-    let notificationType = notification.type; // This is set for WS messages (e.g. 'new_video')
+    let notificationType = notification.type;
 
-    // If message is a string (historical), try to parse it as JSON.
-    // The actual notification type for historical items is inside this parsed payload.
     if (typeof payload === 'string') {
         try {
             payload = JSON.parse(payload);
-            // If historical, and not already set (i.e., not a WS message), get type from parsed payload
             if (payload && payload.type && !notificationType) {
                 notificationType = payload.type;
             }
         } catch (e) {
-            // If parsing fails, it's a plain string message. payload remains the string.
-            // console.warn("Notification message is a non-JSON string or parse failed:", notification.message, e);
+            // not JSON, use as-is
         }
     }
 
-    // Initialize defaults
     let title = "通知";
-    let details = "";
-    // Use notification.link if provided (e.g. from consumer for specific actions), otherwise try to build from payload.
+    let detailsHTML = "";
     let link = notification.link || (payload && payload.url) || '#';
-    let typeForClass = notificationType || 'generic-notification'; // For CSS styling
+    let typeForClass = notificationType || 'generic-notification';
+    let thumbnailHTML = "";
 
-    // Now, payload should be an object if it was a parsable JSON string or originally an object from WS.
-    // Or it could still be a string if it was a simple non-JSON message.
     if (typeof payload === 'object' && payload !== null) {
-        // Re-evaluate link based on payload if not already set by notification.link
         if ((!notification.link || notification.link === '#') && payload.video_id) {
             link = `/videos/${payload.video_id}/`;
             if (payload.parent_comment_id) {
                 link += `#comment-${payload.parent_comment_id}`;
-            } else if (payload.comment_id) { // For top-level comments on video
+            } else if (payload.comment_id) {
                 link += `#comment-${payload.comment_id}`;
             }
         }
 
-        // Use notificationType (which now correctly reflects the type for both WS and historical)
         if (notificationType === 'new_video') {
             title = "新影片發布！";
-            details = `頻道: ${payload.uploader_name || 'N/A'}<br>標題: ${payload.video_title || 'N/A'}`;
+            detailsHTML = `
+                <span class="notification-detail-line">
+                    <span class="notification-detail-label">頻道</span>
+                    <span class="notification-detail-value">${escapeHTML(payload.uploader_name)}</span>
+                </span>
+                <span class="notification-detail-line">
+                    <span class="notification-detail-label">標題</span>
+                    <span class="notification-detail-value">${escapeHTML(payload.video_title)}</span>
+                </span>`;
             if (payload.thumbnail_url) {
-                details += `<br><img src="${payload.thumbnail_url}" alt="Thumbnail" style="max-width: 80px; height: auto; margin-top: 5px; border-radius: 4px;">`;
+                thumbnailHTML = `<img class="notification-thumbnail" src="${escapeHTML(payload.thumbnail_url)}" alt="影片縮圖">`;
             }
         } else if (notificationType === 'new_reply') {
             title = "您的留言有新回覆！";
-            details = `來自: ${payload.replier_name || 'N/A'}<br>影片: ${payload.video_title || 'N/A'}<br>回覆: "${payload.comment_content || ''}"`;
+            detailsHTML = buildCommentNotificationHTML(
+                payload.replier_name || 'N/A', payload.video_title || 'N/A',
+                '回覆了您', payload.comment_content || '');
         } else if (notificationType === 'new_comment_on_video') {
             title = "您的影片有新留言！";
-            details = `來自: ${payload.commenter_name || 'N/A'}<br>影片: ${payload.video_title || 'N/A'}<br>留言: "${payload.comment_content || ''}"`;
+            detailsHTML = buildCommentNotificationHTML(
+                payload.commenter_name || 'N/A', payload.video_title || 'N/A',
+                '留言', payload.comment_content || '');
         } else if (notificationType === 'new_subscription') {
             title = "有新的訂閱者！";
-            details = `${payload.subscriber_name || 'N/A'} 訂閱了您的頻道`;
-        } else { // Generic object payload or unhandled type
-            title = payload.title || "通知"; // Allow title from payload if present
-            details = payload.text || JSON.stringify(payload); // Fallback to 'text' field or stringifying the object
+            detailsHTML = `
+                <span class="notification-detail-line">
+                    <span class="notification-detail-value"><strong>${escapeHTML(payload.subscriber_name)}</strong> 訂閱了您的頻道</span>
+                </span>`;
+        } else {
+            title = escapeHTML(payload.title) || "通知";
+            detailsHTML = `<span class="notification-detail-line"><span class="notification-detail-value">${escapeHTML(payload.text || JSON.stringify(payload))}</span></span>`;
         }
-    } else if (typeof payload === 'string') { // It was a simple, non-JSON string message
-        details = payload; // Display the plain string
-        // title remains "通知"
-    } else { // Fallback for unexpected payload type after potential parsing
-        details = "無法正確顯示通知內容。";
-        // title remains "通知"
+    } else if (typeof payload === 'string') {
+        detailsHTML = `<span class="notification-detail-line"><span class="notification-detail-value">${escapeHTML(payload)}</span></span>`;
+    } else {
+        detailsHTML = `<span class="notification-detail-line"><span class="notification-detail-value">無法正確顯示通知內容。</span></span>`;
     }
 
-    // typeForClass is already set based on notificationType
+    const timestampHTML = notification.timestamp
+        ? `<span class="notification-timestamp">${timeSince(new Date(notification.timestamp))}</span>`
+        : '';
+
     return `
-        <div class="notification-item-content ${typeForClass}">
-            <p class="notification-title"><strong>${title}</strong></p>
-            <p class="notification-details">${details}</p>
-            ${link && link !== '#' ? `<a href="${link}" class="notification-link" target="_blank">查看詳情</a>` : ''}
-            ${notification.timestamp ? `<span class="notification-timestamp">${timeSince(new Date(notification.timestamp))}</span>` : ''}
+        <div class="notification-item-content ${escapeHTML(typeForClass)}">
+            ${getNotificationIcon(notificationType)}
+            <div class="notification-body">
+                <div class="notification-header-row">
+                    <p class="notification-title">${escapeHTML(title)}</p>
+                    ${timestampHTML}
+                </div>
+                <div class="notification-details">
+                    ${detailsHTML}
+                </div>
+                ${thumbnailHTML}
+                ${link && link !== '#' ? `<a href="${escapeHTML(link)}" class="notification-link">查看詳情 &rarr;</a>` : ''}
+            </div>
         </div>
     `;
 }
@@ -409,6 +471,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     } else {
         console.error("CRITICAL: Notification bell icon (ID: notification-bell-icon) not found in DOM at DOMContentLoaded. Click events will not work.");
+    }
+
+    // 綁定「全部標記已讀」按鈕
+    const markAllReadBtn = document.getElementById('mark-all-read-btn');
+    if (markAllReadBtn) {
+        markAllReadBtn.addEventListener('click', function(event) {
+            event.stopPropagation();
+            markAllNotificationsAsReadAPI();
+        });
     }
 
     // 事件委派：通知項目點擊處理

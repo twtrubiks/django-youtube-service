@@ -87,9 +87,14 @@
                                 <span id="notification-count" class="notification-count" style="display: none;">0</span>
                             </span>
                             <div id="notification-dropdown" class="notification-dropdown" style="display: none;">
-                                <div class="notification-dropdown-header">Notifications</div>
-                                <ul id="notification-dropdown-list" class="notification-dropdown-list" style="list-style: none; padding: 0; margin: 0;">
-                                    <li class="no-notifications-placeholder">No new notifications</li>
+                                <div class="notification-dropdown-header">
+                                    <span class="notification-dropdown-header-title">通知</span>
+                                    <button id="mark-all-read-btn" class="mark-all-read-btn" title="全部標記已讀">
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/></svg>
+                                    </button>
+                                </div>
+                                <ul id="notification-dropdown-list" class="notification-dropdown-list">
+                                    <li class="no-notifications-placeholder">目前沒有新通知</li>
                                 </ul>
                             </div>
                         </div>
