@@ -29,9 +29,9 @@ services:
 
     app:
       <<: *x-base-app
-      ports: []
+      ports: !reset []
       deploy:
-        replicas: 2
+        replicas: 1
 
 volumes:
     media-data:

@@ -25,6 +25,9 @@ ARG INSTALL_OTEL=false
 RUN if [ "$INSTALL_S3" = "true" ]; then uv pip install --no-cache --system -r requirements-s3.txt; fi && \
     if [ "$INSTALL_OTEL" = "true" ]; then uv pip install --no-cache --system -r requirements-otel.txt; fi
 
+# 預先建立 volume 掛載點，確保 Docker named volume 繼承正確權限
+RUN mkdir -p /youtube_service/staticfiles /youtube_service/media
+
 # 設定目錄權限給 appuser
 RUN chown -R appuser:appuser /youtube_service
 
