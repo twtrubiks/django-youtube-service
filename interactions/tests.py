@@ -1,5 +1,5 @@
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -12,6 +12,7 @@ from videos.models import Video
 
 from .forms import CommentForm
 from .models import Comment, LikeDislike, Notification, Subscription
+from .tasks import notify_subscribers_of_new_video
 
 TEST_PASSWORD = "password123"
 TEST_VIDEO_CONTENT = b"video content"
@@ -471,48 +472,9 @@ class ToggleSubscriptionViewTests(TestCase):
         response = self._post_toggle_subscription_ajax(999888)
         self.assertEqual(response.status_code, 404)
 
-    @patch("interactions.views.get_channel_layer")
-    @patch("interactions.views.async_to_sync")
-    def test_subscribe_sends_websocket_notification(self, mock_async_to_sync, mock_get_channel_layer):
-        """Test that subscribing sends a WebSocket notification."""
-        # Setup mocks
-        mock_channel_layer = MagicMock()
-        mock_get_channel_layer.return_value = mock_channel_layer
-        mock_group_send = MagicMock()
-        mock_async_to_sync.return_value = mock_group_send
-
-        # Perform subscription
-        response = self._post_toggle_subscription_ajax(self.channel_owner.id)
-
-        # Verify response
-        self.assertEqual(response.status_code, 200)
-        json_response = json.loads(response.content)
-        self.assertEqual(json_response["status"], "success")
-        self.assertTrue(json_response["subscribed"])
-
-        # Verify WebSocket notification was sent
-        mock_get_channel_layer.assert_called_once()
-        mock_async_to_sync.assert_called_once_with(mock_channel_layer.group_send)
-
-        # Verify the message content
-        expected_group_name = f"user_{self.channel_owner.id}_notifications"
-        expected_message = {
-            "type": "send_notification",
-            "message": {
-                "type": "new_subscription",
-                "subscriber_name": self.subscriber_user.username,
-                "subscriber_id": self.subscriber_user.id,
-                "text": f"{self.subscriber_user.username} subscribed to you.",
-                "url": f"/users/channel/{self.subscriber_user.username}/",
-            },
-        }
-
-        mock_group_send.assert_called_once_with(expected_group_name, expected_message)
-
-    def test_subscribe_does_not_create_direct_notification(self):
-        """Test that subscribing does not create a direct Notification object in the view."""
-        initial_notification_count = Notification.objects.count()
-
+    @patch("interactions.services.send_channel_notification.delay")
+    def test_subscribe_persists_notification_and_pushes(self, mock_delay):
+        """訂閱後應先持久化 Notification，再排程 WebSocket 推播（persist-then-push）。"""
         response = self._post_toggle_subscription_ajax(self.channel_owner.id)
 
         self.assertEqual(response.status_code, 200)
@@ -520,7 +482,31 @@ class ToggleSubscriptionViewTests(TestCase):
         self.assertEqual(json_response["status"], "success")
         self.assertTrue(json_response["subscribed"])
 
-        self.assertEqual(Notification.objects.count(), initial_notification_count)
+        notification = Notification.objects.get(recipient=self.channel_owner)
+        self.assertEqual(notification.sender, self.subscriber_user)
+        self.assertEqual(notification.link, f"/users/channel/{self.subscriber_user.username}/")
+        payload = json.loads(notification.message)
+        self.assertEqual(payload["type"], "new_subscription")
+        self.assertEqual(payload["subscriber_name"], self.subscriber_user.username)
+
+        mock_delay.assert_called_once()
+        group_name, message_content = mock_delay.call_args.args
+        self.assertEqual(group_name, f"user_{self.channel_owner.id}_notifications")
+        self.assertEqual(message_content["type"], "send_notification")
+        self.assertEqual(message_content["message"]["id"], notification.id)
+        self.assertEqual(message_content["message"]["type"], "new_subscription")
+
+    @patch("interactions.services.send_channel_notification.delay")
+    def test_unsubscribe_does_not_create_notification(self, mock_delay):
+        """取消訂閱不應產生通知。"""
+        Subscription.objects.create(subscriber=self.subscriber_user, subscribed_to=self.channel_owner)
+
+        response = self._post_toggle_subscription_ajax(self.channel_owner.id)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(json.loads(response.content)["subscribed"])
+        self.assertEqual(Notification.objects.count(), 0)
+        mock_delay.assert_not_called()
 
 
 class SignalHandlerTests(TestCase):
@@ -536,28 +522,98 @@ class SignalHandlerTests(TestCase):
         dummy_file = SimpleUploadedFile(f"{title}.mp4", TEST_VIDEO_CONTENT, TEST_VIDEO_CONTENT_TYPE)
         return Video.objects.create(title=title, uploader=self.uploader, video_file=dummy_file, visibility=visibility)
 
-    @patch("interactions.signals.send_channel_notification.delay")
-    def test_video_published_sends_notification(self, mock_send):
+    @patch("interactions.services.send_channel_notification.delay")
+    def test_video_creation_does_not_notify(self, mock_send):
+        """影片建立時不直接通知，通知改由處理完成後的 fan-out task 負責。"""
         self._create_video("New Public Video")
-        mock_send.assert_called()
-
-    @patch("interactions.signals.send_channel_notification.delay")
-    def test_private_video_no_notification(self, mock_send):
-        self._create_video("Private Video", visibility="private")
         mock_send.assert_not_called()
+        self.assertEqual(Notification.objects.count(), 0)
 
-    @patch("interactions.signals.send_channel_notification.delay")
-    def test_comment_signal_does_not_crash(self, mock_send):
+    @patch("interactions.services.send_channel_notification.delay")
+    def test_comment_persists_notification_for_uploader(self, mock_send):
         video = self._create_video("Video for Comment")
         comment = Comment.objects.create(video=video, user=self.commenter, content="Nice video!")
-        self.assertIsNotNone(comment.id)
 
-    @patch("interactions.signals.send_channel_notification.delay")
-    def test_reply_signal_does_not_crash(self, mock_send):
+        notification = Notification.objects.get(recipient=self.uploader)
+        self.assertEqual(notification.sender, self.commenter)
+        self.assertEqual(notification.link, f"/videos/{video.id}/#comment-{comment.id}")
+        payload = json.loads(notification.message)
+        self.assertEqual(payload["type"], "new_comment_on_video")
+        self.assertEqual(payload["comment_id"], comment.id)
+        mock_send.assert_called_once()
+
+    @patch("interactions.services.send_channel_notification.delay")
+    def test_reply_persists_notification_for_parent_author(self, mock_send):
         video = self._create_video("Video for Reply")
         parent = Comment.objects.create(video=video, user=self.uploader, content="Original comment")
-        reply = Comment.objects.create(video=video, user=self.commenter, content="Reply!", parent_comment=parent)
-        self.assertIsNotNone(reply.id)
+        Comment.objects.create(video=video, user=self.commenter, content="Reply!", parent_comment=parent)
+
+        notification = Notification.objects.get(recipient=self.uploader)
+        payload = json.loads(notification.message)
+        self.assertEqual(payload["type"], "new_reply")
+        self.assertEqual(payload["parent_comment_id"], parent.id)
+        mock_send.assert_called_once()
+
+    @patch("interactions.services.send_channel_notification.delay")
+    def test_own_comment_does_not_notify(self, mock_send):
+        """上傳者在自己影片留言不應通知自己。"""
+        video = self._create_video("Video for Own Comment")
+        Comment.objects.create(video=video, user=self.uploader, content="My own comment")
+        mock_send.assert_not_called()
+        self.assertEqual(Notification.objects.count(), 0)
+
+
+class NotifySubscribersOfNewVideoTaskTests(TestCase):
+    """notify_subscribers_of_new_video fan-out 任務測試"""
+
+    def setUp(self):
+        self.uploader = User.objects.create_user(username="fanout_uploader", password=TEST_PASSWORD)
+        self.subscriber = User.objects.create_user(username="fanout_subscriber", password=TEST_PASSWORD)
+        self.inactive_subscriber = User.objects.create_user(
+            username="fanout_inactive", password=TEST_PASSWORD, is_active=False
+        )
+        Subscription.objects.create(subscriber=self.subscriber, subscribed_to=self.uploader)
+        Subscription.objects.create(subscriber=self.inactive_subscriber, subscribed_to=self.uploader)
+
+    def _create_video(self, title, visibility="public"):
+        dummy_file = SimpleUploadedFile(f"{title}.mp4", TEST_VIDEO_CONTENT, TEST_VIDEO_CONTENT_TYPE)
+        return Video.objects.create(title=title, uploader=self.uploader, video_file=dummy_file, visibility=visibility)
+
+    @patch("interactions.tasks.get_channel_layer")
+    def test_persists_and_pushes_to_active_subscribers(self, mock_get_channel_layer):
+        mock_layer = MagicMock()
+        mock_layer.group_send = AsyncMock()
+        mock_get_channel_layer.return_value = mock_layer
+
+        video = self._create_video("Fanout Video")
+        notify_subscribers_of_new_video(video.id)
+
+        notification = Notification.objects.get(recipient=self.subscriber)
+        self.assertEqual(notification.sender, self.uploader)
+        self.assertEqual(notification.link, f"/videos/{video.id}/")
+        payload = json.loads(notification.message)
+        self.assertEqual(payload["type"], "new_video")
+        self.assertEqual(payload["video_id"], video.id)
+
+        # 停用帳號不應收到通知
+        self.assertFalse(Notification.objects.filter(recipient=self.inactive_subscriber).exists())
+
+        mock_layer.group_send.assert_called_once()
+        group_name, message_content = mock_layer.group_send.call_args.args
+        self.assertEqual(group_name, f"user_{self.subscriber.id}_notifications")
+        self.assertEqual(message_content["message"]["id"], notification.id)
+        self.assertEqual(message_content["message"]["type"], "new_video")
+
+    @patch("interactions.tasks.get_channel_layer")
+    def test_private_video_no_notification(self, mock_get_channel_layer):
+        video = self._create_video("Private Fanout Video", visibility="private")
+        notify_subscribers_of_new_video(video.id)
+        self.assertEqual(Notification.objects.count(), 0)
+        mock_get_channel_layer.assert_not_called()
+
+    def test_missing_video_returns_without_error(self):
+        notify_subscribers_of_new_video(987654)
+        self.assertEqual(Notification.objects.count(), 0)
 
 
 class GetNotificationsViewTests(TestCase):

@@ -1047,13 +1047,20 @@ class ProcessVideoTaskTests(TestCase):
             title="Video for Task Processing in Videos App", uploader=self.user, video_file=self.original_video_file
         )
 
+    @patch("interactions.tasks.notify_subscribers_of_new_video.delay")
     @patch("videos.tasks.generate_hls_files")
     @patch("videos.tasks.ffmpeg")
     @patch("videos.tasks.os.path.exists")
     @patch("videos.tasks.os.makedirs")
     @patch("videos.tasks.open", new_callable=mock_open)
     def test_process_video_successful(
-        self, mock_open_file, mock_os_makedirs, mock_os_path_exists, mock_ffmpeg_module, mock_generate_hls
+        self,
+        mock_open_file,
+        mock_os_makedirs,
+        mock_os_path_exists,
+        mock_ffmpeg_module,
+        mock_generate_hls,
+        mock_notify_subscribers,
     ):
         """測試影片處理成功的情況"""
         mock_ffmpeg_module.Error = ffmpeg.Error
@@ -1109,6 +1116,9 @@ class ProcessVideoTaskTests(TestCase):
 
             self.assertEqual(mock_ffmpeg_module.input.call_count, 2)
             self.assertIn(f"影片 {self.video.title} (ID: {self.video.id}) 處理成功。", result)
+
+            # 處理完成後應派發訂閱者通知 fan-out 任務
+            mock_notify_subscribers.assert_called_once_with(self.video.id)
 
     @patch("videos.tasks.ffmpeg")
     @patch("videos.tasks.os.path.exists", MagicMock(return_value=True))
@@ -1178,12 +1188,13 @@ class ProcessVideoTaskTests(TestCase):
 
             self.assertEqual(mock_ffmpeg_module.input.call_count, 2)
 
+    @patch("interactions.tasks.notify_subscribers_of_new_video.delay")
     @patch("videos.tasks.generate_hls_files")
     @patch("videos.tasks.ffmpeg")
     @patch("videos.tasks.os.makedirs")
     @patch("videos.tasks.open", new_callable=mock_open)
     def test_process_video_removes_original_file_after_transcode(
-        self, mock_open_file, mock_os_makedirs, mock_ffmpeg_module, mock_generate_hls
+        self, mock_open_file, mock_os_makedirs, mock_ffmpeg_module, mock_generate_hls, mock_notify_subscribers
     ):
         """轉檔成功並存入 storage 後，原始上傳檔應被刪除"""
         mock_ffmpeg_module.Error = ffmpeg.Error

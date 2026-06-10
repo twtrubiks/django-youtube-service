@@ -255,6 +255,13 @@ def process_video(self, video_id):
 
         video.processing_status = "completed"
         video.save(update_fields=["processing_status"])
+
+        # 處理完成才通知訂閱者，確保點開通知時影片已可播放
+        if video.visibility == "public":
+            from interactions.tasks import notify_subscribers_of_new_video  # 函式內 import，避免跨 app 循環相依
+
+            notify_subscribers_of_new_video.delay(video.id)
+
         logger.info("影片 %s (ID: %s) 轉檔與縮圖完成（HLS 仍在背景生成中）", video.title, video_id)
         return f"影片 {video.title} (ID: {video_id}) 處理成功。"
 

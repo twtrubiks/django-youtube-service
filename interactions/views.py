@@ -1,8 +1,6 @@
 import logging
 
 import pytz
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -17,6 +15,7 @@ from videos.models import Video
 
 from .forms import CommentForm
 from .models import Comment, LikeDislike, Notification, Subscription
+from .services import notify
 
 logger = logging.getLogger(__name__)
 
@@ -139,23 +138,17 @@ def toggle_subscription(request, user_id_to_subscribe):
         action = "subscribed"
         subscribed_status = True
 
-        if user_to_subscribe_to.is_active:
-            channel_layer = get_channel_layer()
-            group_name = f"user_{user_to_subscribe_to.id}_notifications"
-            message_content = {
-                "type": "send_notification",
-                "message": {
-                    "type": "new_subscription",
-                    "subscriber_name": subscribing_user.username,
-                    "subscriber_id": subscribing_user.id,
-                    "text": f"{subscribing_user.username} subscribed to you.",
-                    "url": reverse("users:channel", kwargs={"username": subscribing_user.username}),
-                },
-            }
-            async_to_sync(channel_layer.group_send)(group_name, message_content)
-            print(
-                f"Sent new subscription notification to group: {group_name} for subscriber: {subscribing_user.username}"
-            )
+        notify(
+            user_to_subscribe_to,
+            {
+                "type": "new_subscription",
+                "subscriber_name": subscribing_user.username,
+                "subscriber_id": subscribing_user.id,
+                "text": f"{subscribing_user.username} subscribed to you.",
+                "url": reverse("users:channel", kwargs={"username": subscribing_user.username}),
+            },
+            sender=subscribing_user,
+        )
     else:
         subscription.delete()
         action = "unsubscribed"
