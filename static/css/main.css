@@ -584,6 +584,36 @@ form button[type="submit"] {
     border-radius: var(--radius);
 }
 
+/* 多畫質選擇器：預設隱藏，hls.js 偵測到多個畫質時由 JS 顯示 */
+.quality-control {
+    display: none;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.quality-control label {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.quality-control select {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.quality-control select:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
 .video-detail-info {
     max-width: 960px;
 }

@@ -68,6 +68,87 @@ def _remove_hls_input_copy(input_file_path):
         _remove_file_if_exists(real_path)
 
 
+# HLS 多畫質 profile；依來源高度挑選，不向上放大
+HLS_RENDITIONS = [
+    {
+        "name": "720p",
+        "height": 720,
+        "video_bitrate": "2500k",
+        "maxrate": "2675k",
+        "bufsize": "3750k",
+        "audio_bitrate": "128k",
+        "bandwidth": 2800000,
+    },
+    {
+        "name": "1080p",
+        "height": 1080,
+        "video_bitrate": "5000k",
+        "maxrate": "5350k",
+        "bufsize": "7500k",
+        "audio_bitrate": "192k",
+        "bandwidth": 5500000,
+    },
+]
+
+
+def _probe_video_dimensions(input_file_path):
+    """用 ffprobe 取得影片的寬與高。"""
+    info = ffmpeg.probe(input_file_path)
+    video_stream = next(s for s in info["streams"] if s.get("codec_type") == "video")
+    return int(video_stream["width"]), int(video_stream["height"])
+
+
+def _select_renditions(source_height):
+    """挑選不超過來源高度的畫質；來源低於最低 profile 時，以來源高度輸出單一畫質。"""
+    selected = [r for r in HLS_RENDITIONS if r["height"] <= source_height]
+    if not selected:
+        selected = [dict(HLS_RENDITIONS[0], name=f"{source_height}p", height=source_height)]
+    return selected
+
+
+def _scaled_even_width(source_width, source_height, target_height):
+    """依等比例縮放計算寬度，取偶數（libx264 要求寬高為偶數）。"""
+    return max(2, 2 * round(source_width * target_height / (source_height * 2)))
+
+
+def _generate_hls_rendition(input_file_path, rendition_dir, rendition):
+    """為單一畫質生成 HLS playlist 與 segments。"""
+    os.makedirs(rendition_dir, exist_ok=True)
+    playlist_path = os.path.join(rendition_dir, "playlist.m3u8")
+    (
+        ffmpeg.input(input_file_path)
+        .output(
+            playlist_path,
+            format="hls",
+            hls_time=10,
+            hls_list_size=0,
+            hls_segment_filename=os.path.join(rendition_dir, "segment_%03d.ts"),
+            vf=f"scale=-2:{rendition['height']}",
+            vcodec="libx264",
+            acodec="aac",
+            **{
+                "b:v": rendition["video_bitrate"],
+                "maxrate": rendition["maxrate"],
+                "bufsize": rendition["bufsize"],
+                "b:a": rendition["audio_bitrate"],
+            },
+        )
+        .run(capture_stdout=True, capture_stderr=True, overwrite_output=True)
+    )
+
+
+def _write_master_playlist(hls_output_directory, renditions, source_width, source_height):
+    """手寫 master.m3u8，串接各畫質的子 playlist。"""
+    lines = ["#EXTM3U", "#EXT-X-VERSION:3"]
+    for rendition in renditions:
+        width = _scaled_even_width(source_width, source_height, rendition["height"])
+        lines.append(f"#EXT-X-STREAM-INF:BANDWIDTH={rendition['bandwidth']},RESOLUTION={width}x{rendition['height']}")
+        lines.append(f"{rendition['name']}/playlist.m3u8")
+    master_path = os.path.join(hls_output_directory, "master.m3u8")
+    with open(master_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
 def transcode_video(video, original_file_path, file_name_without_ext):
     """轉檔影片為 MP4 格式，回傳輸出檔案路徑。"""
     processed_file_name = f"{file_name_without_ext}_processed.mp4"
@@ -200,9 +281,13 @@ def process_video(self, video_id):
         return f"處理影片 {video_id} 時發生未預期錯誤。詳見伺服器日誌。"
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+@shared_task(bind=True, max_retries=3, default_retry_delay=60, soft_time_limit=3300, time_limit=3600)
 def generate_hls_files(self, video_id, input_file_path, file_name_without_ext):
-    """生成 HLS (HTTP Live Streaming) 文件（獨立 Celery 任務，失敗自動重試，重試耗盡標記 hls_status=failed）。"""
+    """生成多畫質 HLS 文件（adaptive bitrate；失敗自動重試，重試耗盡標記 hls_status=failed）。
+
+    每個畫質輸出到獨立子目錄（如 720p/、1080p/），最後手寫 master.m3u8 串接，
+    hls_path 指向 master.m3u8。多畫質轉檔耗時較長，任務層級放寬時間限制至 60 分鐘。
+    """
     try:
         video = Video.objects.get(id=video_id)
     except Video.DoesNotExist:
@@ -216,33 +301,34 @@ def generate_hls_files(self, video_id, input_file_path, file_name_without_ext):
     video.save(update_fields=["hls_status"])
 
     try:
+        source_width, source_height = _probe_video_dimensions(input_file_path)
+        renditions = _select_renditions(source_height)
+
         hls_dir_name = "hls"
         video_hls_dir = f"{video.id}_{file_name_without_ext}"
         hls_output_directory = os.path.join(str(settings.MEDIA_ROOT), hls_dir_name, video_hls_dir)
         os.makedirs(hls_output_directory, exist_ok=True)
 
-        playlist_filename = "playlist.m3u8"
-        playlist_path = os.path.join(hls_output_directory, playlist_filename)
-
-        logger.info("開始為影片 %s (ID: %s) 生成 HLS 文件...", video.title, video.id)
+        rendition_names = ", ".join(r["name"] for r in renditions)
+        logger.info("開始為影片 %s (ID: %s) 生成 HLS 文件（畫質: %s）...", video.title, video.id, rendition_names)
         start_time = time.time()
 
-        (
-            ffmpeg.input(input_file_path)
-            .output(
-                playlist_path,
-                format="hls",
-                hls_time=10,
-                hls_list_size=0,
-                hls_segment_filename=os.path.join(str(hls_output_directory), "segment_%03d.ts"),
-            )
-            .run(capture_stdout=True, capture_stderr=True, overwrite_output=True)
-        )
+        for rendition in renditions:
+            rendition_dir = os.path.join(hls_output_directory, rendition["name"])
+            _generate_hls_rendition(input_file_path, rendition_dir, rendition)
+
+        _write_master_playlist(hls_output_directory, renditions, source_width, source_height)
 
         elapsed = time.time() - start_time
-        logger.info("影片 %s (ID: %s) HLS 文件生成完成，耗時: %.2f 秒", video.title, video.id, elapsed)
+        logger.info(
+            "影片 %s (ID: %s) HLS 文件生成完成（畫質: %s），耗時: %.2f 秒",
+            video.title,
+            video.id,
+            rendition_names,
+            elapsed,
+        )
 
-        video.hls_path = os.path.join(hls_dir_name, video_hls_dir, playlist_filename)
+        video.hls_path = os.path.join(hls_dir_name, video_hls_dir, "master.m3u8")
         video.hls_status = "completed"
         video.save(update_fields=["hls_path", "hls_status"])
 

@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.core.paginator import Paginator
 from django.db.models import F, Q
-from django.http import Http404, HttpResponse, JsonResponse
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -309,26 +309,28 @@ def _get_hls_video(request, video_id):
     return video
 
 
+def _hls_file_response(file_path, content_type, cache_control):
+    """以串流方式回應 HLS 文件，避免將整個檔案載入記憶體。"""
+    try:
+        response = FileResponse(open(file_path, "rb"), content_type=content_type)
+    except OSError as e:
+        raise Http404(f"讀取 HLS 文件失敗: {str(e)}") from e
+    response["Cache-Control"] = cache_control
+    return response
+
+
 def serve_hls_playlist(request, video_id):
-    """服務 HLS 播放清單文件"""
+    """服務 HLS 主播放清單文件（多畫質為 master.m3u8）"""
     video = _get_hls_video(request, video_id)
     playlist_path = os.path.join(settings.MEDIA_ROOT, video.hls_path)
-
-    try:
-        with open(playlist_path, encoding="utf-8") as f:
-            content = f.read()
-        response = HttpResponse(content, content_type="application/vnd.apple.mpegurl")
-        response["Cache-Control"] = "no-cache"
-        return response
-    except OSError as e:
-        raise Http404(f"讀取 HLS 播放清單失敗: {str(e)}") from e
+    return _hls_file_response(playlist_path, "application/vnd.apple.mpegurl", "no-cache")
 
 
 def serve_hls_segment(request, video_id, segment_name):
-    """服務 HLS 片段文件"""
+    """服務 HLS 片段與各畫質子播放清單（如 720p/playlist.m3u8、720p/segment_000.ts）"""
     video = _get_hls_video(request, video_id)
 
-    # 構建片段文件路徑
+    # 構建文件路徑（segment_name 可能含子目錄）
     hls_dir = os.path.realpath(os.path.dirname(os.path.join(settings.MEDIA_ROOT, video.hls_path)))
     segment_path = os.path.realpath(os.path.join(hls_dir, segment_name))
 
@@ -336,12 +338,6 @@ def serve_hls_segment(request, video_id, segment_name):
     if not segment_path.startswith(hls_dir + os.sep):
         raise Http404("無效的片段請求")
 
-    try:
-        with open(segment_path, "rb") as f:
-            content = f.read()
-
-        response = HttpResponse(content, content_type="video/mp2t")
-        response["Cache-Control"] = "public, max-age=3600"
-        return response
-    except OSError as e:
-        raise Http404(f"讀取 HLS 片段失敗: {str(e)}") from e
+    if segment_name.endswith(".m3u8"):
+        return _hls_file_response(segment_path, "application/vnd.apple.mpegurl", "no-cache")
+    return _hls_file_response(segment_path, "video/mp2t", "public, max-age=3600")

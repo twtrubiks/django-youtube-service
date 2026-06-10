@@ -20,6 +20,7 @@ urlpatterns = [
     path("tag/<slug:tag_slug>/", views.videos_by_tag, name="videos_by_tag"),
     path("<int:video_id>/status/", views.video_status, name="video_status"),
     # HLS streaming endpoints
+    # segment_name 用 path converter 以支援多畫質子目錄（如 720p/segment_000.ts）
     path("<int:video_id>/hls/playlist.m3u8", views.serve_hls_playlist, name="hls_playlist"),
-    path("<int:video_id>/hls/<str:segment_name>", views.serve_hls_segment, name="hls_segment"),
+    path("<int:video_id>/hls/<path:segment_name>", views.serve_hls_segment, name="hls_segment"),
 ]

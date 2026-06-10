@@ -34,6 +34,12 @@
             <source src="{{ video.video_file.url }}" type="video/mp4">
             Your browser does not support the video tag.
         </video>
+        {% if video.hls_path %}
+        <div id="quality-control" class="quality-control">
+            <label for="quality-selector">Quality</label>
+            <select id="quality-selector"></select>
+        </div>
+        {% endif %}
         {% elif video.processing_status == 'failed' %}
         <div class="status-banner status-banner--error">
             <svg viewBox="0 0 24 24" width="48" height="48" fill="var(--error)"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
@@ -166,7 +172,7 @@
         </div>
 
         {% if video.hls_path %}
-        <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.15"></script>
+        <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.16"></script>
         <script>
         document.addEventListener('DOMContentLoaded', function() {
             const video = document.getElementById('video-player');
@@ -185,7 +191,43 @@
 
                 hls.on(Hls.Events.MANIFEST_PARSED, function() {
                     console.log('HLS manifest loaded, found ' + hls.levels.length + ' quality level(s)');
+                    setupQualitySelector();
                 });
+
+                function setupQualitySelector() {
+                    const control = document.getElementById('quality-control');
+                    const selector = document.getElementById('quality-selector');
+                    if (!control || !selector || selector.options.length > 0 || hls.levels.length < 2) {
+                        return;
+                    }
+
+                    const autoOption = document.createElement('option');
+                    autoOption.value = '-1';
+                    autoOption.textContent = 'Auto';
+                    selector.appendChild(autoOption);
+
+                    // hls.levels 依 bitrate 由低到高排序，倒序加入讓高畫質排前面
+                    for (let i = hls.levels.length - 1; i >= 0; i--) {
+                        const option = document.createElement('option');
+                        option.value = String(i);
+                        option.textContent = hls.levels[i].height + 'p';
+                        selector.appendChild(option);
+                    }
+                    selector.value = '-1';
+
+                    selector.addEventListener('change', function() {
+                        hls.currentLevel = parseInt(selector.value, 10);
+                    });
+
+                    // 自動模式下顯示目前實際播放的畫質
+                    hls.on(Hls.Events.LEVEL_SWITCHED, function(event, data) {
+                        autoOption.textContent = hls.autoLevelEnabled
+                            ? 'Auto (' + hls.levels[data.level].height + 'p)'
+                            : 'Auto';
+                    });
+
+                    control.style.display = 'flex';
+                }
 
                 hls.on(Hls.Events.ERROR, function(event, data) {
                     console.error('HLS error:', data);

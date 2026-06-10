@@ -85,7 +85,7 @@ Comments
   * Multi-stage processing status tracking
 * **HLS Streaming Technology**:
   * Automatic 10-second segment splitting
-  * Adaptive bitrate streaming
+  * Multi-quality adaptive bitrate streaming (720p/1080p, selected by source resolution, no upscaling)
   * Second-level response for progress bar seeking
   * Native playback support in modern browsers + Safari
 
@@ -415,13 +415,13 @@ erDiagram
 
 [x]  Full test coverage
 
+[x]  Multi-quality streaming (adaptive 720p/1080p)
+
 ### Planned Features 🔄
 
 [ ] **Intelligent Recommendation System**: Video recommendations based on user behavior
 
 [ ] **Playlist Functionality**: User-defined playlists
-
-[ ] **Multi-quality Streaming**: Adaptive 720p/1080p/4K
 
 [ ] **CDN Integration**: Global Content Delivery Network
 

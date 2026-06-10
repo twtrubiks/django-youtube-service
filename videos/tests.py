@@ -10,6 +10,7 @@ Videos App 測試模組
 """
 
 import os
+import shutil
 from unittest.mock import MagicMock, mock_open, patch
 
 import ffmpeg
@@ -1272,14 +1273,16 @@ class HLSFunctionalityTests(TestCase):
     @patch("videos.tasks.settings.MEDIA_ROOT", "/fake/media")
     @patch("videos.tasks.os.makedirs")
     @patch("videos.tasks.os.path.exists", return_value=True)
-    def test_generate_hls_files_with_mock(self, mock_exists, mock_makedirs):
+    @patch("videos.tasks.open", new_callable=mock_open)
+    def test_generate_hls_files_with_mock(self, mock_open_file, mock_exists, mock_makedirs):
         """
-        測試 generate_hls_files 函數的完整功能
+        測試 generate_hls_files 函數的完整功能（1080p 來源產生 720p + 1080p 兩種畫質）
         """
         from videos.tasks import generate_hls_files
 
         with patch("videos.tasks.ffmpeg") as mock_ffmpeg:
-            # 設定 ffmpeg 調用鏈的模擬
+            # 設定 ffprobe 與 ffmpeg 調用鏈的模擬
+            mock_ffmpeg.probe.return_value = {"streams": [{"codec_type": "video", "width": 1920, "height": 1080}]}
             mock_input_stream = mock_ffmpeg.input.return_value
             mock_output_stream = mock_input_stream.output.return_value
             mock_output_stream.run.return_value = (b"stdout", b"stderr")
@@ -1290,24 +1293,30 @@ class HLSFunctionalityTests(TestCase):
             # 驗證結果
             self.assertTrue(result)
 
-            # 驗證 ffmpeg 調用鏈
-            mock_ffmpeg.input.assert_called_once_with("/fake/input/path.mp4")
-            mock_input_stream.output.assert_called_once()
-            mock_output_stream.run.assert_called_once()
+            # 每個畫質各跑一次 ffmpeg
+            self.assertEqual(mock_ffmpeg.input.call_count, 2)
+            self.assertEqual(mock_output_stream.run.call_count, 2)
+
+            # master.m3u8 應串接兩種畫質的子 playlist
+            written = "".join(call.args[0] for call in mock_open_file().write.call_args_list)
+            self.assertIn("720p/playlist.m3u8", written)
+            self.assertIn("1080p/playlist.m3u8", written)
+            self.assertIn("RESOLUTION=1280x720", written)
+            self.assertIn("RESOLUTION=1920x1080", written)
 
             # 驗證影片的 hls_path 與 hls_status 被設置
             self.video.refresh_from_db()
-            self.assertIsNotNone(self.video.hls_path)
-            self.assertIn("hls", self.video.hls_path)
-            self.assertIn("playlist.m3u8", self.video.hls_path)
+            self.assertIn("master.m3u8", self.video.hls_path)
             self.assertEqual(self.video.hls_status, "completed")
 
     def test_generate_hls_files_retries_on_failure(self):
         """測試 generate_hls_files 失敗時會觸發重試"""
         with (
             patch("videos.tasks.ffmpeg") as mock_ffmpeg,
+            patch("videos.tasks.os.makedirs"),
             patch.object(generate_hls_files, "retry", side_effect=Retry("retrying")) as mock_retry,
         ):
+            mock_ffmpeg.probe.return_value = {"streams": [{"codec_type": "video", "width": 1280, "height": 720}]}
             mock_ffmpeg.input.side_effect = Exception("Mock ffmpeg error")
 
             # 還有重試額度時，retry 會拋出 Retry 交由 Celery 重新排程
@@ -1320,8 +1329,10 @@ class HLSFunctionalityTests(TestCase):
         """測試重試耗盡後 hls_status 標記為 failed 且回傳 False"""
         with (
             patch("videos.tasks.ffmpeg") as mock_ffmpeg,
+            patch("videos.tasks.os.makedirs"),
             patch.object(generate_hls_files, "retry", side_effect=MaxRetriesExceededError()),
         ):
+            mock_ffmpeg.probe.return_value = {"streams": [{"codec_type": "video", "width": 1280, "height": 720}]}
             mock_ffmpeg.input.side_effect = Exception("Mock ffmpeg error")
 
             result = generate_hls_files(self.video.id, "/fake/path.mp4", "test")
@@ -1330,8 +1341,9 @@ class HLSFunctionalityTests(TestCase):
             self.video.refresh_from_db()
             self.assertEqual(self.video.hls_status, "failed")
 
+    @patch("videos.tasks.open", new_callable=mock_open)
     @patch("videos.tasks.os.makedirs")
-    def test_generate_hls_files_removes_input_copy_on_success(self, mock_makedirs):
+    def test_generate_hls_files_removes_input_copy_on_success(self, mock_makedirs, mock_open_file):
         """HLS 生成成功後，processed_videos 中的轉檔暫存副本應被刪除"""
         processed_dir = os.path.join(settings.MEDIA_ROOT, "videos", "processed_videos")
         os.makedirs(processed_dir, exist_ok=True)
@@ -1340,18 +1352,21 @@ class HLSFunctionalityTests(TestCase):
             f.write(b"processed content")
 
         with patch("videos.tasks.ffmpeg") as mock_ffmpeg:
+            mock_ffmpeg.probe.return_value = {"streams": [{"codec_type": "video", "width": 1280, "height": 720}]}
             mock_ffmpeg.input.return_value.output.return_value.run.return_value = (b"", b"")
             result = generate_hls_files(self.video.id, input_copy, "hls_input_test")
 
         self.assertTrue(result)
         self.assertFalse(os.path.exists(input_copy))
 
+    @patch("videos.tasks.open", new_callable=mock_open)
     @patch("videos.tasks.os.makedirs")
-    def test_generate_hls_files_keeps_input_outside_processed_dir(self, mock_makedirs):
+    def test_generate_hls_files_keeps_input_outside_processed_dir(self, mock_makedirs, mock_open_file):
         """輸入檔不在 processed_videos 內（如 admin 重新生成）時，不應被刪除"""
         input_path = self.video.video_file.path  # 位於 media/videos/
 
         with patch("videos.tasks.ffmpeg") as mock_ffmpeg:
+            mock_ffmpeg.probe.return_value = {"streams": [{"codec_type": "video", "width": 1280, "height": 720}]}
             mock_ffmpeg.input.return_value.output.return_value.run.return_value = (b"", b"")
             result = generate_hls_files(self.video.id, input_path, "hls_keep_test")
 
@@ -1369,6 +1384,23 @@ class HLSFunctionalityTests(TestCase):
 
             self.assertTrue(result)
             mock_ffmpeg.input.assert_not_called()
+
+    def test_select_renditions_no_upscale(self):
+        """測試畫質挑選不會向上放大：來源高度決定產出的畫質清單"""
+        from videos.tasks import _select_renditions
+
+        self.assertEqual([r["name"] for r in _select_renditions(720)], ["720p"])
+        self.assertEqual([r["name"] for r in _select_renditions(1080)], ["720p", "1080p"])
+        self.assertEqual([r["name"] for r in _select_renditions(2160)], ["720p", "1080p"])
+
+    def test_select_renditions_low_resolution_source(self):
+        """測試來源低於 720p 時，以來源高度輸出單一畫質"""
+        from videos.tasks import _select_renditions
+
+        renditions = _select_renditions(480)
+        self.assertEqual(len(renditions), 1)
+        self.assertEqual(renditions[0]["name"], "480p")
+        self.assertEqual(renditions[0]["height"], 480)
 
     def test_admin_regenerate_hls_action(self):
         """測試 admin 重新生成 HLS action 會重設狀態並排程任務"""
@@ -1413,6 +1445,15 @@ class HLSFunctionalityTests(TestCase):
         expected_url = f"/videos/{self.video.id}/hls/{segment_name}"
         self.assertEqual(url, expected_url)
 
+    def test_hls_segment_url_pattern_supports_nested_path(self):
+        """
+        測試 HLS 片段 URL 支援多畫質子目錄路徑
+        """
+        from django.urls import reverse
+
+        url = reverse("videos:hls_segment", args=[self.video.id, "720p/segment_001.ts"])
+        self.assertEqual(url, f"/videos/{self.video.id}/hls/720p/segment_001.ts")
+
 
 class HLSViewTests(TestCase):
     """
@@ -1423,13 +1464,27 @@ class HLSViewTests(TestCase):
         self.user = User.objects.create_user(username="hls_view_user", password="password123")
         self.other_user = User.objects.create_user(username="other_user", password="password123")
 
+        # 建立真實的多畫質 HLS 目錄結構（master.m3u8 + 720p 子目錄 + 舊版扁平 segment）
+        self.hls_dir_name = "hlsview_test_dir"
+        self.hls_dir = os.path.join(settings.MEDIA_ROOT, "hls", self.hls_dir_name)
+        os.makedirs(os.path.join(self.hls_dir, "720p"), exist_ok=True)
+        with open(os.path.join(self.hls_dir, "master.m3u8"), "w", encoding="utf-8") as f:
+            f.write("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720\n720p/playlist.m3u8\n")
+        with open(os.path.join(self.hls_dir, "720p", "playlist.m3u8"), "w", encoding="utf-8") as f:
+            f.write("#EXTM3U\n#EXTINF:10.0,\nsegment_000.ts\n")
+        self.segment_data = b"fake ts segment data"
+        with open(os.path.join(self.hls_dir, "720p", "segment_000.ts"), "wb") as f:
+            f.write(self.segment_data)
+        with open(os.path.join(self.hls_dir, "segment_000.ts"), "wb") as f:
+            f.write(self.segment_data)
+
         # 創建有 HLS 路徑的影片
         self.video_with_hls = Video.objects.create(
             title="Video with HLS",
             uploader=self.user,
             video_file=SimpleUploadedFile("hls_video.mp4", b"video content", content_type="video/mp4"),
             visibility="public",
-            hls_path="hls/1_test_video/playlist.m3u8",
+            hls_path=f"hls/{self.hls_dir_name}/master.m3u8",
         )
 
         # 創建沒有 HLS 路徑的影片
@@ -1446,23 +1501,24 @@ class HLSViewTests(TestCase):
             uploader=self.user,
             video_file=SimpleUploadedFile("private_video.mp4", b"video content", content_type="video/mp4"),
             visibility="private",
-            hls_path="hls/3_private_video/playlist.m3u8",
+            hls_path=f"hls/{self.hls_dir_name}/master.m3u8",
         )
+
+    def tearDown(self):
+        shutil.rmtree(self.hls_dir, ignore_errors=True)
 
     def test_hls_playlist_view_success(self):
         """
-        測試成功獲取 HLS 播放清單
+        測試成功獲取 HLS master 播放清單
         """
-        with (
-            patch("os.path.exists", return_value=True),
-            patch("builtins.open", mock_open(read_data="#EXTM3U\n#EXT-X-VERSION:3\n")),
-        ):
-            response = self.client.get(reverse("videos:hls_playlist", args=[self.video_with_hls.id]))
+        response = self.client.get(reverse("videos:hls_playlist", args=[self.video_with_hls.id]))
 
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(response["Content-Type"], "application/vnd.apple.mpegurl")
-            self.assertEqual(response["Cache-Control"], "no-cache")
-            self.assertIn("#EXTM3U", response.content.decode())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/vnd.apple.mpegurl")
+        self.assertEqual(response["Cache-Control"], "no-cache")
+        content = b"".join(response.streaming_content).decode()
+        self.assertIn("#EXTM3U", content)
+        self.assertIn("720p/playlist.m3u8", content)
 
     def test_hls_playlist_view_video_not_found(self):
         """
@@ -1490,41 +1546,48 @@ class HLSViewTests(TestCase):
         測試影片擁有者訪問私人影片的 HLS 播放清單
         """
         self.client.login(username="hls_view_user", password="password123")
+        response = self.client.get(reverse("videos:hls_playlist", args=[self.private_video.id]))
+        self.assertEqual(response.status_code, 200)
 
-        with (
-            patch("os.path.exists", return_value=True),
-            patch("builtins.open", mock_open(read_data="#EXTM3U\n#EXT-X-VERSION:3\n")),
-        ):
-            response = self.client.get(reverse("videos:hls_playlist", args=[self.private_video.id]))
-            self.assertEqual(response.status_code, 200)
+    def test_hls_sub_playlist_view_success(self):
+        """
+        測試多畫質子播放清單以 m3u8 content type 服務
+        """
+        response = self.client.get(reverse("videos:hls_segment", args=[self.video_with_hls.id, "720p/playlist.m3u8"]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/vnd.apple.mpegurl")
+        self.assertEqual(response["Cache-Control"], "no-cache")
+        self.assertIn("segment_000.ts", b"".join(response.streaming_content).decode())
 
     def test_hls_segment_view_success(self):
         """
-        測試成功獲取 HLS 片段
+        測試成功獲取多畫質子目錄中的 HLS 片段
         """
-        segment_name = "segment_001.ts"
-        fake_segment_data = b"fake ts segment data"
+        response = self.client.get(reverse("videos:hls_segment", args=[self.video_with_hls.id, "720p/segment_000.ts"]))
 
-        with (
-            patch("os.path.exists", return_value=True),
-            patch("os.path.dirname", return_value="/fake/hls/dir"),
-            patch("os.path.join", return_value="/fake/hls/dir/segment_001.ts"),
-            patch("builtins.open", mock_open(read_data=fake_segment_data)),
-        ):
-            response = self.client.get(reverse("videos:hls_segment", args=[self.video_with_hls.id, segment_name]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "video/mp2t")
+        self.assertEqual(response["Cache-Control"], "public, max-age=3600")
+        self.assertEqual(b"".join(response.streaming_content), self.segment_data)
 
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(response["Content-Type"], "video/mp2t")
-            self.assertEqual(response["Cache-Control"], "public, max-age=3600")
-            self.assertEqual(response.content, fake_segment_data)
+    def test_hls_segment_view_flat_layout_still_served(self):
+        """測試舊版單一畫質扁平結構的 segment 仍可存取（向下相容）"""
+        response = self.client.get(reverse("videos:hls_segment", args=[self.video_with_hls.id, "segment_000.ts"]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "video/mp2t")
+        self.assertEqual(b"".join(response.streaming_content), self.segment_data)
+
+    def test_hls_segment_view_missing_file_returns_404(self):
+        """測試請求不存在的片段回傳 404"""
+        response = self.client.get(reverse("videos:hls_segment", args=[self.video_with_hls.id, "720p/segment_999.ts"]))
+        self.assertEqual(response.status_code, 404)
 
     def test_hls_segment_path_traversal_blocked(self):
-        """測試路徑穿越攻擊被阻擋（Django URL 路由已阻止含 / 的 segment_name）"""
-        # <str:segment_name> 不允許 /，所以 ../../ 無法通過路由
-        # 驗證不含 / 但嘗試穿越的 segment name 也會被 realpath 檢查攔截
-        response = self.client.get(
-            reverse("videos:hls_segment", args=[self.video_with_hls.id, "..%2F..%2Fetc%2Fpasswd"])
-        )
+        """測試路徑穿越攻擊被 realpath 圍欄攔截（路由現在允許含 / 的路徑）"""
+        # ../../videos/hls_video.mp4 實際存在，但位於 HLS 目錄之外，必須被擋下
+        response = self.client.get(f"/videos/{self.video_with_hls.id}/hls/../../videos/hls_video.mp4")
         self.assertEqual(response.status_code, 404)
 
     def test_hls_playlist_anonymous_private_video_blocked(self):
