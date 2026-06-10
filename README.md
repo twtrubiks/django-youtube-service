@@ -247,6 +247,7 @@ cp .env.example .env
 | `REDIS_HOST` | `localhost` | Redis 主機位址 |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | 允許的主機名稱（逗號分隔） |
 | `CELERY_CONCURRENCY` | `2` | Celery Worker 並行處理數 |
+| `WORKER_CPUS` | `2` | 轉檔 worker 容器的 CPU 上限，建議設為主機核心數減 2~4，避免 ffmpeg 餓死 Redis/daphne |
 | `ENABLE_PROMETHEUS` | (依 DEBUG) | 是否啟用 Prometheus 指標收集 |
 | `USE_S3` | (空) | 設為 `true` 啟用 S3/MinIO 物件儲存 |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | (空) | OpenTelemetry collector endpoint，留空則停用 |

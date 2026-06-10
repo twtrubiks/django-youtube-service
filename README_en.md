@@ -244,6 +244,7 @@ Key environment variables:
 | `REDIS_HOST` | `localhost` | Redis host address |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Allowed hostnames (comma-separated) |
 | `CELERY_CONCURRENCY` | `2` | Celery Worker concurrency |
+| `WORKER_CPUS` | `2` | CPU limit for the transcoding worker container; recommended host cores minus 2-4 so ffmpeg cannot starve Redis/daphne |
 | `ENABLE_PROMETHEUS` | (depends on DEBUG) | Enable Prometheus metrics collection |
 | `USE_S3` | (empty) | Set to `true` to enable S3/MinIO object storage |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | (empty) | OpenTelemetry collector endpoint; leave empty to disable |

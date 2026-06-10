@@ -26,6 +26,8 @@ services:
     worker:
       <<: *x-base-app
       command: celery -A youtube_service worker -l info --concurrency=${CELERY_CONCURRENCY:-2}
+      # 限制轉檔 worker 的 CPU，避免 ffmpeg 吃滿主機導致 Redis/daphne 被餓死（WS 通知逾時斷線）
+      cpus: ${WORKER_CPUS:-2}
       restart: always
       depends_on:
         app:
