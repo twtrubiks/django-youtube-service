@@ -34,5 +34,5 @@ class VideoUploadForm(forms.ModelForm):
         video_file = cleaned_data.get("video_file") or self.files.get("video_file")
         if not title and video_file:
             filename = getattr(video_file, "name", "")
-            cleaned_data["title"] = os.path.splitext(filename)[0][:255]
+            cleaned_data["title"] = os.path.splitext(os.path.basename(filename))[0][:255]
         return cleaned_data

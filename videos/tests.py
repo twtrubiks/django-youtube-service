@@ -307,11 +307,13 @@ class VideoUploadFormTests(BaseVideoTestCase):
             print("VideoUploadForm errors (minimum_fields):", form.errors.as_json())
         self.assertTrue(form.is_valid(), msg=f"Form errors (minimum_fields): {form.errors.as_json()}")
 
-    def test_video_upload_form_missing_title(self):
+    def test_video_upload_form_missing_title_uses_filename(self):
+        """未填標題時，自動以檔名（去副檔名）作為預設標題"""
+        form_data = {"visibility": "public"}
         file_data = {"video_file": self.video_file}
-        form = VideoUploadForm(data={}, files=file_data)
-        self.assertFalse(form.is_valid())
-        self.assertIn("title", form.errors)
+        form = VideoUploadForm(data=form_data, files=file_data)
+        self.assertTrue(form.is_valid(), msg=f"Form errors: {form.errors.as_json()}")
+        self.assertEqual(form.cleaned_data["title"], "form_video")
 
     def test_video_upload_form_missing_video_file_for_new_instance(self):
         form_data = {"title": "Video without file"}
@@ -586,17 +588,31 @@ class EditVideoViewTests(TestCase):
         self.assertEqual(str(messages[0]), "Video updated successfully.")
 
     def test_edit_video_view_post_invalid_form(self):
-        form_data = {"title": ""}
+        form_data = {"title": ""}  # 缺少必填的 visibility，表單應無效
         response = self.client.post(reverse("videos:edit_video", args=[self.video.id]), data=form_data)
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "videos/edit_video.html")
         self.assertFalse(response.context["form"].is_valid())
-        self.assertIn("title", response.context["form"].errors)
+        self.assertIn("visibility", response.context["form"].errors)
 
         messages = list(response.wsgi_request._messages)
         self.assertEqual(len(messages), 1)
         self.assertEqual(str(messages[0]), "Error updating video. Please check the form.")
+
+    def test_edit_video_view_post_empty_title_uses_filename(self):
+        """編輯時清空標題，會自動以既有影片的檔名（去副檔名）作為標題"""
+        form_data = {
+            "title": "",
+            "description": "Updated Description",
+            "visibility": "public",
+        }
+        response = self.client.post(reverse("videos:edit_video", args=[self.video.id]), data=form_data)
+
+        self.assertEqual(response.status_code, 302)
+        self.video.refresh_from_db()
+        expected_title = os.path.splitext(os.path.basename(self.video.video_file.name))[0]
+        self.assertEqual(self.video.title, expected_title)
 
     def test_edit_video_view_not_uploader(self):
         self.client.logout()
