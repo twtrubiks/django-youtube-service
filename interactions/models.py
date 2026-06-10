@@ -12,7 +12,8 @@ class Comment(models.Model):
     video = models.ForeignKey("videos.Video", on_delete=models.CASCADE, related_name="comments")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="comments")
     parent_comment = models.ForeignKey("self", null=True, blank=True, on_delete=models.CASCADE, related_name="replies")
-    content = models.TextField()
+    # max_length 只作用在驗證層（form/full_clean），PostgreSQL 欄位仍是 text
+    content = models.TextField(max_length=5000)
     timestamp = models.DateTimeField(default=timezone.now, db_index=True)
 
     def __str__(self):
@@ -98,6 +99,7 @@ class Notification(models.Model):
 
     class Meta:
         ordering = ["-timestamp"]
+        indexes = [models.Index(fields=["recipient", "-timestamp"], name="notif_recipient_ts_idx")]
 
     def __str__(self):
         return f"Notification for {self.recipient.username}: {self.message[:50]}"

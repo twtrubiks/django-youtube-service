@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from django.contrib.auth.models import User
@@ -173,12 +174,19 @@ class CommentFormTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("content", form.errors)
 
-    def test_comment_form_content_too_long(self):
-        """Test that very long content is accepted."""
+    def test_comment_form_content_at_max_length(self):
+        """Test that content exactly at the 5000-char limit is accepted."""
         long_content = "a" * 5000
         form_data = {"content": long_content}
         form = CommentForm(data=form_data)
         self.assertTrue(form.is_valid())
+
+    def test_comment_form_content_too_long(self):
+        """Test that content over the 5000-char limit is rejected."""
+        form_data = {"content": "a" * 5001}
+        form = CommentForm(data=form_data)
+        self.assertFalse(form.is_valid())
+        self.assertIn("content", form.errors)
 
     def test_comment_form_widget_attributes(self):
         form = CommentForm()
@@ -645,6 +653,23 @@ class GetNotificationsViewTests(TestCase):
         response = self.client.get(reverse("interactions:get_notifications"))
         data = json.loads(response.content)
         self.assertEqual(len(data["data"]["notifications"]), 1)
+
+    def test_get_notifications_capped_at_50(self):
+        Notification.objects.bulk_create(
+            Notification(
+                recipient=self.user,
+                message=f"Notification {i}",
+                timestamp=timezone.now() + timedelta(seconds=i),
+            )
+            for i in range(60)
+        )
+        response = self.client.get(reverse("interactions:get_notifications"))
+        data = json.loads(response.content)
+        notifications = data["data"]["notifications"]
+        self.assertEqual(len(notifications), 50)
+        # 回傳的是最新的 50 筆，由新到舊排序
+        self.assertEqual(notifications[0]["message"], "Notification 59")
+        self.assertEqual(notifications[-1]["message"], "Notification 10")
 
     def test_get_notifications_requires_login(self):
         self.client.logout()

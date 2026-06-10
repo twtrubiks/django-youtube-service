@@ -1,7 +1,5 @@
 import logging
 
-import pytz
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.http import JsonResponse
@@ -177,41 +175,19 @@ def toggle_subscription(request, user_id_to_subscribe):
 
 @login_required
 def get_notifications(request):
-    notifications = Notification.objects.filter(recipient=request.user).order_by("-timestamp")
+    notifications = Notification.objects.filter(recipient=request.user).order_by("-timestamp")[:50]
 
-    data = []
-    for notification in notifications:
-        ts = notification.timestamp
-        timestamp_str = ""
-
-        if ts.tzinfo is None or ts.tzinfo.utcoffset(ts) is None:
-            try:
-                server_local_tz = pytz.timezone(settings.TIME_ZONE)
-                aware_local_ts = server_local_tz.localize(ts, is_dst=None)
-                aware_utc_ts = aware_local_ts.astimezone(pytz.utc)
-                timestamp_str = aware_utc_ts.isoformat()
-            except (pytz.AmbiguousTimeError, pytz.NonExistentTimeError):
-                aware_utc_ts = ts.replace(tzinfo=pytz.utc)
-                timestamp_str = aware_utc_ts.isoformat()
-            except Exception:
-                logger.warning(
-                    "Unexpected error converting notification timestamp for id=%s", notification.id, exc_info=True
-                )
-                aware_utc_ts = ts.replace(tzinfo=pytz.utc)
-                timestamp_str = aware_utc_ts.isoformat()
-        else:
-            aware_utc_ts = ts.astimezone(pytz.utc)
-            timestamp_str = aware_utc_ts.isoformat()
-
-        data.append(
-            {
-                "id": notification.id,
-                "message": notification.message,
-                "link": notification.link,
-                "is_read": notification.is_read,
-                "timestamp": timestamp_str,
-            }
-        )
+    data = [
+        {
+            "id": notification.id,
+            "message": notification.message,
+            "link": notification.link,
+            "is_read": notification.is_read,
+            # USE_TZ=True 下 timestamp 必為 aware UTC，isoformat 直接得到 +00:00 結尾
+            "timestamp": notification.timestamp.isoformat(),
+        }
+        for notification in notifications
+    ]
 
     return JsonResponse({"status": "success", "data": {"notifications": data}})
 
