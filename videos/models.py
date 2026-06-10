@@ -53,6 +53,16 @@ class Video(models.Model):
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="videos")
     tags = TaggableManager(blank=True)
     hls_path = models.CharField(max_length=255, blank=True, null=True)
+    hls_status = models.CharField(
+        max_length=20,
+        choices=[
+            ("pending", "Pending"),
+            ("processing", "Processing"),
+            ("completed", "Completed"),
+            ("failed", "Failed"),
+        ],
+        default="pending",
+    )
 
     def __str__(self):
         return self.title

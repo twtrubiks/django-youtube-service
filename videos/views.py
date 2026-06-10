@@ -317,7 +317,7 @@ def delete_video(request, video_id):
 def video_status(request, video_id):
     """回傳影片處理狀態 JSON。"""
     video = get_object_or_404(Video, pk=video_id)
-    return JsonResponse({"status": video.processing_status or "pending"})
+    return JsonResponse({"status": video.processing_status or "pending", "hls_status": video.hls_status})
 
 
 def _get_hls_video(request, video_id):

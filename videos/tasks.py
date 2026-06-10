@@ -6,6 +6,7 @@ import time
 # 第三方庫 imports
 import ffmpeg
 from celery import shared_task
+from celery.exceptions import MaxRetriesExceededError
 
 # Django imports
 from django.conf import settings
@@ -174,14 +175,20 @@ def process_video(self, video_id):
         return f"處理影片 {video_id} 時發生未預期錯誤。詳見伺服器日誌。"
 
 
-@shared_task
-def generate_hls_files(video_id, input_file_path, file_name_without_ext):
-    """生成 HLS (HTTP Live Streaming) 文件（獨立 Celery 任務）。"""
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def generate_hls_files(self, video_id, input_file_path, file_name_without_ext):
+    """生成 HLS (HTTP Live Streaming) 文件（獨立 Celery 任務，失敗自動重試，重試耗盡標記 hls_status=failed）。"""
     try:
         video = Video.objects.get(id=video_id)
     except Video.DoesNotExist:
         logger.error("HLS 生成失敗：找不到影片 ID %s", video_id)
         return False
+
+    if video.hls_status == "completed" and video.hls_path:
+        return True
+
+    video.hls_status = "processing"
+    video.save(update_fields=["hls_status"])
 
     try:
         hls_dir_name = "hls"
@@ -211,9 +218,15 @@ def generate_hls_files(video_id, input_file_path, file_name_without_ext):
         logger.info("影片 %s (ID: %s) HLS 文件生成完成，耗時: %.2f 秒", video.title, video.id, elapsed)
 
         video.hls_path = os.path.join(hls_dir_name, video_hls_dir, playlist_filename)
-        video.save(update_fields=["hls_path"])
+        video.hls_status = "completed"
+        video.save(update_fields=["hls_path", "hls_status"])
         return True
 
-    except Exception:
+    except Exception as exc:
         logger.exception("生成 HLS 文件失敗 (影片 ID: %s)", video.id)
-        return False
+        try:
+            raise self.retry(exc=exc)
+        except MaxRetriesExceededError:
+            logger.error("影片 ID %s 的 HLS 生成已達重試上限，標記為 failed", video_id)
+            Video.objects.filter(id=video_id).update(hls_status="failed")
+            return False

@@ -79,6 +79,11 @@
             <span style="font-size: 16px; color: var(--text-secondary);">Video file not available.</span>
         </div>
         {% endif %}
+        {% if video.hls_status == 'failed' and user == video.uploader %}
+        <div class="status-banner status-banner--error" style="padding: 8px 16px;">
+            <span style="font-size: 14px;">HLS streaming generation failed — this video is playing as standard MP4. Only you can see this message.</span>
+        </div>
+        {% endif %}
     </div>
 
     <div class="video-detail-info">

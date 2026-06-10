@@ -13,6 +13,7 @@ import os
 from unittest.mock import MagicMock, mock_open, patch
 
 import ffmpeg
+from celery.exceptions import MaxRetriesExceededError, Retry
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -1189,23 +1190,74 @@ class HLSFunctionalityTests(TestCase):
             mock_input_stream.output.assert_called_once()
             mock_output_stream.run.assert_called_once()
 
-            # 驗證影片的 hls_path 被設置
+            # 驗證影片的 hls_path 與 hls_status 被設置
             self.video.refresh_from_db()
             self.assertIsNotNone(self.video.hls_path)
             self.assertIn("hls", self.video.hls_path)
             self.assertIn("playlist.m3u8", self.video.hls_path)
+            self.assertEqual(self.video.hls_status, "completed")
 
-    def test_generate_hls_files_error_handling(self):
-        """測試 generate_hls_files 函數的錯誤處理"""
-        with patch("videos.tasks.ffmpeg") as mock_ffmpeg:
-            # 模擬 ffmpeg 拋出異常
+    def test_generate_hls_files_retries_on_failure(self):
+        """測試 generate_hls_files 失敗時會觸發重試"""
+        with (
+            patch("videos.tasks.ffmpeg") as mock_ffmpeg,
+            patch.object(generate_hls_files, "retry", side_effect=Retry("retrying")) as mock_retry,
+        ):
             mock_ffmpeg.input.side_effect = Exception("Mock ffmpeg error")
 
-            # 執行函數，應該返回 False 而不是拋出異常
+            # 還有重試額度時，retry 會拋出 Retry 交由 Celery 重新排程
+            with self.assertRaises(Retry):
+                generate_hls_files(self.video.id, "/fake/path.mp4", "test")
+
+            mock_retry.assert_called_once()
+
+    def test_generate_hls_files_marks_failed_when_retries_exhausted(self):
+        """測試重試耗盡後 hls_status 標記為 failed 且回傳 False"""
+        with (
+            patch("videos.tasks.ffmpeg") as mock_ffmpeg,
+            patch.object(generate_hls_files, "retry", side_effect=MaxRetriesExceededError()),
+        ):
+            mock_ffmpeg.input.side_effect = Exception("Mock ffmpeg error")
+
             result = generate_hls_files(self.video.id, "/fake/path.mp4", "test")
 
-            # 驗證函數正確處理異常
             self.assertFalse(result)
+            self.video.refresh_from_db()
+            self.assertEqual(self.video.hls_status, "failed")
+
+    def test_generate_hls_files_skips_when_already_completed(self):
+        """測試 HLS 已完成時跳過重複生成（冪等保護）"""
+        self.video.hls_path = "hls/1_test/playlist.m3u8"
+        self.video.hls_status = "completed"
+        self.video.save()
+
+        with patch("videos.tasks.ffmpeg") as mock_ffmpeg:
+            result = generate_hls_files(self.video.id, "/fake/path.mp4", "test")
+
+            self.assertTrue(result)
+            mock_ffmpeg.input.assert_not_called()
+
+    def test_admin_regenerate_hls_action(self):
+        """測試 admin 重新生成 HLS action 會重設狀態並排程任務"""
+        from django.contrib.admin.sites import AdminSite
+
+        from videos.admin import VideoAdmin
+
+        self.video.hls_status = "failed"
+        self.video.save()
+
+        model_admin = VideoAdmin(Video, AdminSite())
+        with (
+            patch("videos.admin.generate_hls_files.delay") as mock_delay,
+            patch.object(VideoAdmin, "message_user") as mock_message,
+        ):
+            model_admin.regenerate_hls(None, Video.objects.filter(id=self.video.id))
+
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.hls_status, "pending")
+        mock_delay.assert_called_once()
+        self.assertEqual(mock_delay.call_args[0][0], self.video.id)
+        mock_message.assert_called_once()
 
     def test_hls_playlist_url_pattern(self):
         """
@@ -1360,3 +1412,4 @@ class HLSViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("status", data)
+        self.assertIn("hls_status", data)
