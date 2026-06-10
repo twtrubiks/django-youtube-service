@@ -24,7 +24,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 
-from interactions.models import LikeDislike
+from interactions.models import Comment, LikeDislike
 
 from .forms import CategoryForm, VideoUploadForm
 from .models import Category, Video
@@ -485,7 +485,9 @@ class VideoDetailViewTests(TestCase):
         self.assertTemplateUsed(response, "videos/video_detail.html")
         self.assertEqual(response.context["video"], self.video)
         self.assertIn("comment_form", response.context)
-        self.assertIn("comments", response.context)
+        self.assertIn("comments_page", response.context)
+        self.assertEqual(response.context["comments_count"], 0)
+        self.assertIsNone(response.context["pinned_comment"])
         self.assertEqual(response.context["likes_count"], 0)
         self.assertEqual(response.context["dislikes_count"], 0)
         self.assertIsNone(response.context["user_vote"])
@@ -516,6 +518,48 @@ class VideoDetailViewTests(TestCase):
         self.video.refresh_from_db()
         self.assertEqual(self.video.views_count, initial_views + 2)
         self.assertTrue(new_client.session.get(f"viewed_video_{self.video.id}"))
+
+    def test_video_detail_comments_paginated_top_level_only(self):
+        top_comments = [
+            Comment.objects.create(video=self.video, user=self.viewer, content=f"Top comment {i}") for i in range(25)
+        ]
+        newest_comment = top_comments[-1]
+        Comment.objects.create(video=self.video, user=self.viewer, content="A reply", parent_comment=newest_comment)
+
+        response = self.client.get(reverse("videos:video_detail", args=[self.video.id]))
+        self.assertEqual(response.status_code, 200)
+        comments_page = response.context["comments_page"]
+        self.assertEqual(len(comments_page.object_list), 20)
+        self.assertTrue(comments_page.has_next())
+        # 回覆不出現在頂層列表，但計入總數
+        self.assertTrue(all(c.parent_comment_id is None for c in comments_page.object_list))
+        self.assertEqual(response.context["comments_count"], 26)
+        # 最新一筆在第 1 頁（newest first），驗證回覆數 annotation
+        comment_with_reply = next(c for c in comments_page.object_list if c.id == newest_comment.id)
+        self.assertEqual(comment_with_reply.num_replies, 1)
+
+    def test_video_detail_pinned_comment_via_query_param(self):
+        root = Comment.objects.create(video=self.video, user=self.viewer, content="Root comment")
+        reply = Comment.objects.create(video=self.video, user=self.uploader, content="Reply", parent_comment=root)
+        Comment.objects.create(video=self.video, user=self.viewer, content="Other comment")
+
+        # ?comment= 指向回覆時，釘選的是其頂層留言，且回覆預先展開
+        response = self.client.get(reverse("videos:video_detail", args=[self.video.id]), {"comment": reply.id})
+        self.assertEqual(response.status_code, 200)
+        pinned = response.context["pinned_comment"]
+        self.assertEqual(pinned, root)
+        self.assertEqual([r.id for r in pinned.preloaded_replies], [reply.id])
+        # 釘選的留言不重複出現在列表中
+        self.assertNotIn(root.id, [c.id for c in response.context["comments_page"].object_list])
+
+    def test_video_detail_pinned_comment_invalid_param_ignored(self):
+        response = self.client.get(reverse("videos:video_detail", args=[self.video.id]), {"comment": "abc"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["pinned_comment"])
+
+        response = self.client.get(reverse("videos:video_detail", args=[self.video.id]), {"comment": "999999"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["pinned_comment"])
 
     def test_video_detail_view_like_dislike_counts_and_user_vote(self):
         LikeDislike.objects.create(video=self.video, user=self.uploader, type=LikeDislike.LIKE)

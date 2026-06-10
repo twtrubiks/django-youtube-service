@@ -148,7 +148,7 @@
     </div>
 
     <div class="comments-section">
-        <h3>Comments (<span id="comments-count">{{ comments.count }}</span>)</h3>
+        <h3>Comments (<span id="comments-count">{{ comments_count }}</span>)</h3>
         <div id="comment-form-errors" style="color: var(--error); font-size: 0.9em; margin-bottom: 10px;"></div>
         {% if user.is_authenticated %}
             <form id="main-comment-form" method="post" action="{% url 'interactions:add_comment' video.id %}" class="comment-form">
@@ -161,15 +161,28 @@
             <p><a href="{% url 'users:login' %}?next={{ request.path }}">Log in</a> to post a comment.</p>
         {% endif %}
 
-        <div id="comments-list">
-        {% for comment in comments %}
-            {% if not comment.parent_comment %}
-                {% include "interactions/_comment_detail.html" with comment=comment video=video request=request %}
-            {% endif %}
-        {% empty %}
-            <p id="no-comments-message" style="color: var(--text-muted); text-align: center; padding: 24px 0;">No comments yet. Be the first to comment!</p>
-        {% endfor %}
+        {% if pinned_comment %}
+        <div id="pinned-comment">
+            {% include "interactions/_comment_detail.html" with comment=pinned_comment video=video request=request %}
         </div>
+        {% endif %}
+
+        <div id="comments-list" data-replies-url-base="{% url 'interactions:get_replies' 0 %}">
+        {% for comment in comments_page %}
+            {% include "interactions/_comment_detail.html" with comment=comment video=video request=request %}
+        {% endfor %}
+        {% if not comments_count %}
+            <p id="no-comments-message" style="color: var(--text-muted); text-align: center; padding: 24px 0;">No comments yet. Be the first to comment!</p>
+        {% endif %}
+        </div>
+
+        {% if comments_page.has_next %}
+        <button type="button" id="load-more-comments" class="button button-secondary"
+                data-url="{% url 'interactions:get_comments' video.id %}"
+                data-next-page="2"{% if pinned_comment %} data-exclude="{{ pinned_comment.id }}"{% endif %}>
+            Load more comments
+        </button>
+        {% endif %}
 
         {% if video.hls_path %}
         <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.16"></script>

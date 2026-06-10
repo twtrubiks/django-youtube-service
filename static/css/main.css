@@ -823,6 +823,25 @@ form button[type="submit"] {
     border-left: 2px solid var(--border);
 }
 
+.replies-toggle-btn {
+    margin-top: 8px;
+}
+
+.show-more-replies {
+    margin-top: 8px;
+}
+
+#load-more-comments {
+    display: block;
+    margin: 8px auto 0;
+}
+
+/* 通知深連結 (#comment-<id>) 落點高亮 */
+.comment:target > .comment-content {
+    border-left: 3px solid var(--accent);
+    padding-left: 12px;
+}
+
 /* --- Auth Form (Login/Register) --- */
 .auth-form-container .helptext {
     display: none;

@@ -275,6 +275,32 @@ class AddCommentViewTests(TestCase):
         self.assertEqual(json_response["parent_comment_id"], parent_comment.id)
         self.assertIn(reply_data["content"], json_response["comment_html"])
 
+    def test_add_reply_to_reply_rerooted_to_top_level(self):
+        """回覆「回覆」應掛回頂層留言（兩層結構），通知送給實際被回覆的人。"""
+        root = Comment.objects.create(video=self.video, user=self.video_author, content="Root comment")
+        reply_author = User.objects.create_user(username="first_replier", password=TEST_PASSWORD)
+        first_reply = Comment.objects.create(
+            video=self.video, user=reply_author, content="First reply", parent_comment=root
+        )
+        Notification.objects.all().delete()
+
+        reply_data = {"content": "Reply to a reply.", "parent_comment_id": first_reply.id}
+        response = self.client.post(
+            reverse("interactions:add_comment", args=[self.video.id]),
+            data=reply_data,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        json_response = json.loads(response.content)
+        # AJAX 回應的 parent_comment_id 是 re-root 後的頂層留言
+        self.assertEqual(json_response["parent_comment_id"], root.id)
+        new_reply = Comment.objects.get(content=reply_data["content"])
+        self.assertEqual(new_reply.parent_comment, root)
+        # 通知送給 first_reply 的作者，而非頂層留言的作者
+        notification = Notification.objects.get()
+        self.assertEqual(notification.recipient, reply_author)
+
     def test_add_comment_invalid_form_non_ajax(self):
         response = self.client.post(reverse("interactions:add_comment", args=[self.video.id]), data={"content": ""})
         self.assertEqual(response.status_code, 302)
@@ -544,7 +570,7 @@ class SignalHandlerTests(TestCase):
 
         notification = Notification.objects.get(recipient=self.uploader)
         self.assertEqual(notification.sender, self.commenter)
-        self.assertEqual(notification.link, f"/videos/{video.id}/#comment-{comment.id}")
+        self.assertEqual(notification.link, f"/videos/{video.id}/?comment={comment.id}#comment-{comment.id}")
         payload = json.loads(notification.message)
         self.assertEqual(payload["type"], "new_comment_on_video")
         self.assertEqual(payload["comment_id"], comment.id)
@@ -554,9 +580,10 @@ class SignalHandlerTests(TestCase):
     def test_reply_persists_notification_for_parent_author(self, mock_send):
         video = self._create_video("Video for Reply")
         parent = Comment.objects.create(video=video, user=self.uploader, content="Original comment")
-        Comment.objects.create(video=video, user=self.commenter, content="Reply!", parent_comment=parent)
+        reply = Comment.objects.create(video=video, user=self.commenter, content="Reply!", parent_comment=parent)
 
         notification = Notification.objects.get(recipient=self.uploader)
+        self.assertEqual(notification.link, f"/videos/{video.id}/?comment={parent.id}#comment-{reply.id}")
         payload = json.loads(notification.message)
         self.assertEqual(payload["type"], "new_reply")
         self.assertEqual(payload["parent_comment_id"], parent.id)
@@ -622,6 +649,95 @@ class NotifySubscribersOfNewVideoTaskTests(TestCase):
     def test_missing_video_returns_without_error(self):
         notify_subscribers_of_new_video(987654)
         self.assertEqual(Notification.objects.count(), 0)
+
+
+class GetCommentsViewTests(TestCase):
+    """Test cases for the paginated get_comments endpoint."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="comments_pager", password=TEST_PASSWORD)
+        dummy_file = SimpleUploadedFile("pager.mp4", TEST_VIDEO_CONTENT, TEST_VIDEO_CONTENT_TYPE)
+        self.video = Video.objects.create(title="Pager Video", uploader=self.user, video_file=dummy_file)
+
+    def test_get_comments_paginated(self):
+        for i in range(25):
+            Comment.objects.create(video=self.video, user=self.user, content=f"Comment {i}")
+
+        response = self.client.get(reverse("interactions:get_comments", args=[self.video.id]))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data["has_next"])
+        self.assertEqual(data["next_page"], 2)
+        self.assertEqual(data["html"].count('class="comment"'), 20)
+
+        response = self.client.get(reverse("interactions:get_comments", args=[self.video.id]), {"page": 2})
+        data = json.loads(response.content)
+        self.assertFalse(data["has_next"])
+        self.assertIsNone(data["next_page"])
+        self.assertEqual(data["html"].count('class="comment"'), 5)
+
+    def test_get_comments_excludes_replies_and_pinned(self):
+        root = Comment.objects.create(video=self.video, user=self.user, content="Root comment")
+        Comment.objects.create(video=self.video, user=self.user, content="Reply content", parent_comment=root)
+        Comment.objects.create(video=self.video, user=self.user, content="Other comment")
+
+        response = self.client.get(reverse("interactions:get_comments", args=[self.video.id]))
+        data = json.loads(response.content)
+        self.assertIn("Root comment", data["html"])
+        self.assertIn("Other comment", data["html"])
+        self.assertNotIn("Reply content", data["html"])
+
+        response = self.client.get(reverse("interactions:get_comments", args=[self.video.id]), {"exclude": root.id})
+        data = json.loads(response.content)
+        self.assertNotIn("Root comment", data["html"])
+        self.assertIn("Other comment", data["html"])
+
+    def test_get_comments_non_existent_video(self):
+        response = self.client.get(reverse("interactions:get_comments", args=[9999]))
+        self.assertEqual(response.status_code, 404)
+
+
+class GetRepliesViewTests(TestCase):
+    """Test cases for the paginated get_replies endpoint."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="replies_pager", password=TEST_PASSWORD)
+        dummy_file = SimpleUploadedFile("replies.mp4", TEST_VIDEO_CONTENT, TEST_VIDEO_CONTENT_TYPE)
+        self.video = Video.objects.create(title="Replies Video", uploader=self.user, video_file=dummy_file)
+        self.root = Comment.objects.create(video=self.video, user=self.user, content="Root for replies")
+
+    def test_get_replies_paginated_oldest_first(self):
+        replies = [
+            Comment.objects.create(
+                video=self.video,
+                user=self.user,
+                content=f"Reply {i}",
+                parent_comment=self.root,
+                timestamp=timezone.now() + timedelta(seconds=i),
+            )
+            for i in range(12)
+        ]
+
+        response = self.client.get(reverse("interactions:get_replies", args=[self.root.id]))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data["has_next"])
+        self.assertEqual(data["next_page"], 2)
+        self.assertEqual(data["html"].count('class="comment"'), 10)
+        # 回覆由舊到新（對話順序）
+        self.assertIn("Reply 0", data["html"])
+        self.assertNotIn(f"Reply {len(replies) - 1}", data["html"])
+
+        response = self.client.get(reverse("interactions:get_replies", args=[self.root.id]), {"page": 2})
+        data = json.loads(response.content)
+        self.assertFalse(data["has_next"])
+        self.assertEqual(data["html"].count('class="comment"'), 2)
+        self.assertIn("Reply 11", data["html"])
+
+    def test_get_replies_of_reply_returns_404(self):
+        reply = Comment.objects.create(video=self.video, user=self.user, content="A reply", parent_comment=self.root)
+        response = self.client.get(reverse("interactions:get_replies", args=[reply.id]))
+        self.assertEqual(response.status_code, 404)
 
 
 class GetNotificationsViewTests(TestCase):

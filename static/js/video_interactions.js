@@ -2,12 +2,124 @@
 
 function toggleReplyForm(commentId) {
     var formContainer = document.getElementById('reply-form-container-' + commentId);
-    if (formContainer) {
-        formContainer.style.display = formContainer.style.display === 'none' ? 'block' : 'none';
-        if (formContainer.style.display === 'block') {
-            formContainer.querySelector('textarea[name="content"]').focus();
+    if (!formContainer) return;
+    var isHidden = getComputedStyle(formContainer).display === 'none';
+    formContainer.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) {
+        var textarea = formContainer.querySelector('textarea[name="content"]');
+        var commentEl = document.getElementById('comment-' + commentId);
+        // 回覆「回覆」時預填 @作者 提供對話脈絡（後端會把它掛回頂層留言串）
+        if (commentEl && commentEl.closest('.replies-container') && !textarea.value) {
+            textarea.value = '@' + commentEl.dataset.author + ' ';
         }
+        textarea.focus();
     }
+}
+
+function bindReplyForms(scope) {
+    (scope || document).querySelectorAll('.reply-form-actual').forEach(function(form) {
+        if (!form.dataset.listenerAttached) {
+            handleCommentSubmission(form, true);
+            form.dataset.listenerAttached = 'true';
+        }
+    });
+}
+
+function updateRepliesToggleText(btn, expanded) {
+    if (expanded) {
+        btn.textContent = 'Hide replies';
+    } else {
+        var count = btn.dataset.count;
+        btn.textContent = 'View ' + count + (count === '1' ? ' reply' : ' replies');
+    }
+}
+
+function loadReplies(commentId, page, replace) {
+    var container = document.getElementById('replies-to-' + commentId);
+    var base = document.getElementById('comments-list').dataset.repliesUrlBase;
+    var url = base.replace('/0/', '/' + commentId + '/') + '?page=' + page;
+
+    fetch(url)
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            if (data.status !== 'success') return;
+            var moreBtn = container.querySelector('.show-more-replies');
+            if (moreBtn) moreBtn.remove();
+            if (replace) {
+                container.innerHTML = data.html;
+            } else {
+                container.insertAdjacentHTML('beforeend', data.html);
+            }
+            if (data.has_next) {
+                container.insertAdjacentHTML('beforeend',
+                    '<button type="button" class="button button-secondary button-small show-more-replies">Show more replies</button>');
+                container.querySelector('.show-more-replies').addEventListener('click', function() {
+                    loadReplies(commentId, data.next_page, false);
+                });
+            }
+            bindReplyForms(container);
+            container.style.display = 'block';
+        })
+        .catch(function(error) {
+            console.error('Error loading replies:', error);
+            showToast('Failed to load replies.');
+        });
+}
+
+function bindRepliesToggles(scope) {
+    (scope || document).querySelectorAll('.replies-toggle-btn').forEach(function(btn) {
+        if (btn.dataset.listenerAttached) return;
+        btn.dataset.listenerAttached = 'true';
+        btn.addEventListener('click', function() {
+            var commentId = btn.dataset.commentId;
+            var container = document.getElementById('replies-to-' + commentId);
+            var visible = getComputedStyle(container).display !== 'none';
+            if (visible) {
+                container.style.display = 'none';
+                updateRepliesToggleText(btn, false);
+            } else if (btn.dataset.loaded === 'true') {
+                container.style.display = 'block';
+                updateRepliesToggleText(btn, true);
+            } else {
+                btn.dataset.loaded = 'true';
+                loadReplies(commentId, 1, true);
+                updateRepliesToggleText(btn, true);
+            }
+        });
+    });
+}
+
+function initLoadMoreComments() {
+    var btn = document.getElementById('load-more-comments');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+        var url = btn.dataset.url + '?page=' + btn.dataset.nextPage;
+        if (btn.dataset.exclude) url += '&exclude=' + btn.dataset.exclude;
+        btn.disabled = true;
+        fetch(url)
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.status !== 'success') {
+                    btn.disabled = false;
+                    return;
+                }
+                var commentsList = document.getElementById('comments-list');
+                commentsList.insertAdjacentHTML('beforeend', data.html);
+                bindReplyForms(commentsList);
+                bindRepliesToggles(commentsList);
+                if (data.has_next) {
+                    btn.dataset.nextPage = data.next_page;
+                    btn.disabled = false;
+                } else {
+                    btn.remove();
+                }
+            })
+            .catch(function(error) {
+                console.error('Error loading comments:', error);
+                btn.disabled = false;
+                showToast('Failed to load comments.');
+            });
+    });
 }
 
 function handleCommentSubmission(form, isReply) {
@@ -39,27 +151,26 @@ function handleCommentSubmission(form, isReply) {
                 var commentsCountSpan = document.getElementById('comments-count');
 
                 if (data.is_reply) {
+                    // parent_comment_id 一律是頂層留言（後端 re-root），容器必定存在
                     var parentReplies = document.getElementById('replies-to-' + data.parent_comment_id);
                     if (parentReplies) {
                         parentReplies.insertAdjacentHTML('beforeend', data.comment_html);
-                        parentReplies.querySelectorAll('.reply-form-actual').forEach(function(f) {
-                            if (!f.dataset.listenerAttached) {
-                                handleCommentSubmission(f, true);
-                                f.dataset.listenerAttached = 'true';
-                            }
-                        });
+                        parentReplies.style.display = 'block';
+                        bindReplyForms(parentReplies);
+                        var toggleBtn = document.querySelector('.replies-toggle-btn[data-comment-id="' + data.parent_comment_id + '"]');
+                        if (toggleBtn) {
+                            toggleBtn.dataset.count = parseInt(toggleBtn.dataset.count || '0', 10) + 1;
+                            toggleBtn.style.display = '';
+                            updateRepliesToggleText(toggleBtn, true);
+                        }
                     }
                 } else {
-                    commentsList.insertAdjacentHTML('beforeend', data.comment_html);
+                    commentsList.insertAdjacentHTML('afterbegin', data.comment_html);
                     if (noCommentsMessage) noCommentsMessage.style.display = 'none';
                     var newComment = document.getElementById('comment-' + data.comment_id);
                     if (newComment) {
-                        newComment.querySelectorAll('.reply-form-actual').forEach(function(f) {
-                            if (!f.dataset.listenerAttached) {
-                                handleCommentSubmission(f, true);
-                                f.dataset.listenerAttached = 'true';
-                            }
-                        });
+                        bindReplyForms(newComment);
+                        bindRepliesToggles(newComment);
                     }
                 }
                 form.reset();
@@ -131,12 +242,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var mainForm = document.getElementById('main-comment-form');
     if (mainForm) handleCommentSubmission(mainForm, false);
 
-    document.querySelectorAll('.reply-form-actual').forEach(function(form) {
-        if (!form.dataset.listenerAttached) {
-            handleCommentSubmission(form, true);
-            form.dataset.listenerAttached = 'true';
-        }
-    });
-
+    bindReplyForms(document);
+    bindRepliesToggles(document);
+    initLoadMoreComments();
     initVoteForm();
 });

@@ -6,6 +6,8 @@ app_name = "interactions"
 
 urlpatterns = [
     path("video/<int:video_id>/comment/add/", views.add_comment, name="add_comment"),
+    path("video/<int:video_id>/comments/", views.get_comments, name="get_comments"),
+    path("comment/<int:comment_id>/replies/", views.get_replies, name="get_replies"),
     path("video/<int:video_id>/vote/", views.vote_video, name="vote_video"),
     path("user/<int:user_id_to_subscribe>/toggle_subscribe/", views.toggle_subscription, name="toggle_subscription"),
     # Notification URLs

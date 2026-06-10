@@ -2,6 +2,8 @@ import logging
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.paginator import Paginator
+from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
@@ -16,6 +18,9 @@ from .models import Comment, LikeDislike, Notification, Subscription
 from .services import notify
 
 logger = logging.getLogger(__name__)
+
+COMMENTS_PER_PAGE = 20
+REPLIES_PER_PAGE = 10
 
 
 @ratelimit(key="user", rate="30/m", method="POST", block=True)
@@ -34,12 +39,18 @@ def add_comment(request, video_id):
         parent_comment = None
         if parent_comment_id:
             try:
-                parent_comment = Comment.objects.get(id=parent_comment_id, video=video)
-                comment.parent_comment = parent_comment
+                parent_comment = Comment.objects.select_related("parent_comment").get(id=parent_comment_id, video=video)
             except Comment.DoesNotExist:
+                parent_comment = None
                 if request.headers.get("x-requested-with") == "XMLHttpRequest":
                     return JsonResponse({"status": "error", "message": "Parent comment not found."}, status=400)
-                pass
+            else:
+                if parent_comment.parent_comment_id:
+                    # 留言串只有兩層：回覆「回覆」時掛回頂層留言（同 YouTube），
+                    # 通知仍須送給實際被回覆的人，先記在 instance 上供 signal 使用
+                    comment._reply_to_user = parent_comment.user
+                    parent_comment = parent_comment.parent_comment
+                comment.parent_comment = parent_comment
 
         comment.save()
 
@@ -67,6 +78,56 @@ def add_comment(request, video_id):
             return JsonResponse({"status": "error", "errors": form.errors}, status=400)
         else:
             return redirect("videos:video_detail", video_id=video.id)
+
+
+def get_comments(request, video_id):
+    """回傳影片頂層留言的分頁 HTML（前端 Load more 用）。"""
+    video = get_object_or_404(Video, id=video_id)
+    comments = (
+        Comment.objects.filter(video=video, parent_comment__isnull=True)
+        .select_related("user")
+        .annotate(num_replies=Count("replies"))
+        .order_by("-timestamp")
+    )
+
+    # 釘選留言（通知深連結）已在頁面最上方渲染，載入更多時跳過避免重複
+    exclude_id = request.GET.get("exclude")
+    if exclude_id and exclude_id.isdigit():
+        comments = comments.exclude(pk=exclude_id)
+
+    paginator = Paginator(comments, COMMENTS_PER_PAGE)
+    page = paginator.get_page(request.GET.get("page"))
+    html = render_to_string(
+        "interactions/_comment_list.html", {"comments": page.object_list, "video": video, "request": request}
+    )
+    return JsonResponse(
+        {
+            "status": "success",
+            "html": html,
+            "has_next": page.has_next(),
+            "next_page": page.next_page_number() if page.has_next() else None,
+        }
+    )
+
+
+def get_replies(request, comment_id):
+    """回傳頂層留言底下回覆的分頁 HTML（前端展開回覆用），由舊到新排序。"""
+    comment = get_object_or_404(Comment.objects.select_related("video"), id=comment_id, parent_comment__isnull=True)
+    replies = comment.replies.select_related("user").order_by("timestamp")
+    paginator = Paginator(replies, REPLIES_PER_PAGE)
+    page = paginator.get_page(request.GET.get("page"))
+    html = render_to_string(
+        "interactions/_comment_list.html",
+        {"comments": page.object_list, "video": comment.video, "request": request},
+    )
+    return JsonResponse(
+        {
+            "status": "success",
+            "html": html,
+            "has_next": page.has_next(),
+            "next_page": page.next_page_number() if page.has_next() else None,
+        }
+    )
 
 
 @ratelimit(key="user", rate="60/m", method="POST", block=True)

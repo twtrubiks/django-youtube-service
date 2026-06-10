@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.core.paginator import Paginator
-from django.db.models import F, Q
+from django.db.models import Count, F, Q
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -20,6 +20,7 @@ from taggit.models import Tag
 
 from interactions.forms import CommentForm
 from interactions.models import Comment, LikeDislike
+from interactions.views import COMMENTS_PER_PAGE
 
 # 本地應用 imports
 from .forms import CategoryForm, VideoUploadForm
@@ -68,7 +69,30 @@ def video_detail(request, video_id):
         HttpResponse: 渲染的影片詳細頁面
     """
     video = get_object_or_404(Video, pk=video_id)
-    comments = Comment.objects.filter(video=video).select_related("user", "parent_comment__user").order_by("-timestamp")
+
+    top_level_comments = (
+        Comment.objects.filter(video=video, parent_comment__isnull=True)
+        .select_related("user")
+        .annotate(num_replies=Count("replies"))
+        .order_by("-timestamp")
+    )
+
+    # 通知深連結：?comment=<id> 將該留言串釘選在列表最上方並預先展開回覆，
+    # 確保留言分頁後 #comment-<id> anchor 仍然有效
+    pinned_comment = None
+    pinned_id = request.GET.get("comment")
+    if pinned_id and pinned_id.isdigit():
+        pinned = (
+            Comment.objects.filter(video=video, pk=pinned_id).select_related("user", "parent_comment__user").first()
+        )
+        if pinned:
+            pinned_comment = pinned.parent_comment or pinned
+            pinned_comment.preloaded_replies = list(pinned_comment.replies.select_related("user").order_by("timestamp"))
+            pinned_comment.num_replies = len(pinned_comment.preloaded_replies)
+            top_level_comments = top_level_comments.exclude(pk=pinned_comment.pk)
+
+    comments_page = Paginator(top_level_comments, COMMENTS_PER_PAGE).get_page(1)
+    comments_count = video.comments.count()
     comment_form = CommentForm()
 
     viewed_video_session_key = f"viewed_video_{video.id}"
@@ -91,7 +115,9 @@ def video_detail(request, video_id):
 
     context = {
         "video": video,
-        "comments": comments,
+        "comments_page": comments_page,
+        "comments_count": comments_count,
+        "pinned_comment": pinned_comment,
         "comment_form": comment_form,
         "likes_count": likes_count,
         "dislikes_count": dislikes_count,

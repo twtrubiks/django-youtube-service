@@ -1,0 +1,4 @@
+{% comment %}Renders a page of comments (top-level or replies) for AJAX pagination responses.{% endcomment %}
+{% for comment in comments %}
+    {% include "interactions/_comment_detail.html" with comment=comment video=video request=request %}
+{% endfor %}

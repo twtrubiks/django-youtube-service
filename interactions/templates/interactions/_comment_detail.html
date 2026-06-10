@@ -1,5 +1,5 @@
-{% comment %}This template snippet is used to render a single comment, primarily for AJAX responses.{% endcomment %}
-<div class="comment" id="comment-{{ comment.id }}">
+{% comment %}Renders a single comment (top-level or reply). Replies are lazy-loaded unless preloaded_replies is set (pinned thread from a notification deep link).{% endcomment %}
+<div class="comment" id="comment-{{ comment.id }}" data-author="{{ comment.user.username }}">
     <div class="comment-author-avatar">
         <div role="img" aria-label="{{ comment.user.username }}'s avatar" class="avatar-circle">
             {{ comment.user.username|first|upper }}
@@ -17,17 +17,27 @@
                 {% csrf_token %}
                 <input type="hidden" name="parent_comment_id" value="{{ comment.id }}">
                 <div>
-                    <textarea name="content" rows="3" placeholder="Write a reply..." required aria-label="Reply to {{ comment.user.username }}" class="reply-textarea"></textarea>
+                    <textarea name="content" rows="3" maxlength="5000" placeholder="Write a reply..." required aria-label="Reply to {{ comment.user.username }}" class="reply-textarea"></textarea>
                 </div>
                 <button type="submit" name="submit_reply" value="true" class="button button-small reply-submit-btn">Post Reply</button>
             </form>
         </div>
         {% endif %}
 
-        <div class="replies-container" id="replies-to-{{ comment.id }}">
-            {% for reply in comment.replies.all %}
+        {% if not comment.parent_comment_id %}
+        <button type="button"
+                class="button button-secondary button-small replies-toggle-btn"
+                data-comment-id="{{ comment.id }}"
+                data-count="{{ comment.num_replies|default:0 }}"
+                data-loaded="{% if comment.preloaded_replies %}true{% else %}false{% endif %}"
+                {% if not comment.num_replies %}style="display: none;"{% endif %}>
+            {% if comment.preloaded_replies %}Hide replies{% else %}View {{ comment.num_replies|default:0 }} repl{{ comment.num_replies|default:0|pluralize:"y,ies" }}{% endif %}
+        </button>
+        <div class="replies-container" id="replies-to-{{ comment.id }}" {% if not comment.preloaded_replies %}style="display: none;"{% endif %}>
+            {% for reply in comment.preloaded_replies %}
                 {% include "interactions/_comment_detail.html" with comment=reply video=video request=request %}
             {% endfor %}
         </div>
+        {% endif %}
     </div>
 </div>
