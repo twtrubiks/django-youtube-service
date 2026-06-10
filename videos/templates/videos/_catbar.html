@@ -1,0 +1,41 @@
+{% if nav_categories %}
+<div class="catbar">
+    <button type="button" class="catbar-arrow catbar-arrow--left" aria-label="Scroll categories left" hidden>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="catbar-scroll">
+        <a class="chip{% if not current_category_slug %} chip--selected{% endif %}" href="{% url 'videos:home' %}">All</a>
+        {% for nav_category in nav_categories %}
+        <a class="chip{% if nav_category.slug == current_category_slug %} chip--selected{% endif %}" href="{% url 'videos:videos_by_category' nav_category.slug %}">{{ nav_category.name }}</a>
+        {% endfor %}
+    </div>
+    <button type="button" class="catbar-arrow catbar-arrow--right" aria-label="Scroll categories right" hidden>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
+</div>
+<script>
+(function() {
+    const bar = document.querySelector('.catbar');
+    const scroller = bar.querySelector('.catbar-scroll');
+    const left = bar.querySelector('.catbar-arrow--left');
+    const right = bar.querySelector('.catbar-arrow--right');
+
+    function update() {
+        const max = scroller.scrollWidth - scroller.clientWidth;
+        left.hidden = scroller.scrollLeft <= 1;
+        right.hidden = scroller.scrollLeft >= max - 1;
+    }
+
+    function scrollStep(direction) {
+        const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+        scroller.scrollBy({ left: direction * scroller.clientWidth * 0.7, behavior: behavior });
+    }
+
+    left.addEventListener('click', function() { scrollStep(-1); });
+    right.addEventListener('click', function() { scrollStep(1); });
+    scroller.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+})();
+</script>
+{% endif %}

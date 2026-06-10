@@ -19,7 +19,7 @@ from django_ratelimit.decorators import ratelimit
 from taggit.models import Tag
 
 from interactions.forms import CommentForm
-from interactions.models import Comment, LikeDislike
+from interactions.models import Comment, LikeDislike, Subscription
 from interactions.views import COMMENTS_PER_PAGE
 
 # 本地應用 imports
@@ -113,6 +113,17 @@ def video_detail(request, video_id):
         except LikeDislike.DoesNotExist:
             pass  # User hasn't voted
 
+    is_subscribed = False
+    if request.user.is_authenticated and request.user != video.uploader:
+        is_subscribed = Subscription.objects.filter(subscriber=request.user, subscribed_to=video.uploader).exists()
+
+    related_videos = (
+        Video.objects.filter(visibility="public")
+        .exclude(pk=video.pk)
+        .select_related("uploader")
+        .order_by("-upload_date")[:8]
+    )
+
     context = {
         "video": video,
         "comments_page": comments_page,
@@ -124,6 +135,8 @@ def video_detail(request, video_id):
         "user_vote": user_vote,  # 'like', 'dislike', or None
         "category": video.category,
         "tags": video.tags.all(),
+        "is_subscribed": is_subscribed,
+        "related_videos": related_videos,
     }
     return render(request, "videos/video_detail.html", context)
 

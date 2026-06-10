@@ -4,6 +4,7 @@
 
 {% block content %}
 <div class="container">
+    {% include "videos/_catbar.html" with current_category_slug=category.slug %}
     <h2 class="section-title">Videos in Category: {{ category.name }}</h2>
 
     {% if videos %}

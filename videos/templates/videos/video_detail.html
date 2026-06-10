@@ -28,6 +28,8 @@
 
 {% block content %}
 <div class="container">
+  <div class="watch-layout">
+    <div class="watch-main">
     <div class="video-player-container">
         {% if video.processing_status == 'completed' and video.video_file %}
         <video id="video-player" controls style="width: 100%; height: auto;">
@@ -36,13 +38,18 @@
         </video>
         {% if video.hls_path %}
         <div id="quality-control" class="quality-control">
-            <label for="quality-selector">Quality</label>
-            <select id="quality-selector"></select>
+            <button type="button" id="quality-toggle" class="quality-toggle" aria-haspopup="menu" aria-expanded="false">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                <span id="quality-label">Auto</span>
+            </button>
+            <div id="quality-menu" class="quality-menu" role="menu" aria-label="Quality" hidden>
+                <div class="quality-menu-head">Quality</div>
+            </div>
         </div>
         {% endif %}
         {% elif video.processing_status == 'failed' %}
         <div class="status-banner status-banner--error">
-            <svg viewBox="0 0 24 24" width="48" height="48" fill="var(--error)"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+            <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="var(--error)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 20h16a2 2 0 0 0 1.73-2Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
             <span style="font-size: 18px; font-weight: 600;">Video processing failed</span>
             <span style="font-size: 14px; color: var(--text-secondary);">Please try re-uploading your video</span>
         </div>
@@ -92,58 +99,83 @@
         {% endif %}
     </div>
 
-    <div class="video-detail-info">
-        <h2>{{ video.title }}</h2>
-        <div class="video-detail-meta">
-            <span>{{ video.views_count }} views</span>
-            <span>{{ video.upload_date|date:"Y-m-d H:i" }}</span>
-            <span>Uploader: <a href="{% url 'users:channel' video.uploader.username %}">{{ video.uploader.username }}</a></span>
-            <span>Visibility: {{ video.get_visibility_display }}</span>
-            {% if video.category %}
-            <span>Category: <a href="{% url 'videos:videos_by_category' video.category.slug %}">{{ video.category.name }}</a></span>
+    <h1 class="watch-title">{{ video.title }}</h1>
+
+    <div class="watch-actionsrow">
+        <div class="channelrow">
+            <a class="channelrow-avatar" href="{% url 'users:channel' video.uploader.username %}">
+                {% if video.uploader.profile.profile_picture %}
+                <img src="{{ video.uploader.profile.profile_picture.url }}" alt="">
+                {% else %}
+                <div class="avatar-circle">{{ video.uploader.username|first|upper }}</div>
+                {% endif %}
+            </a>
+            <div class="channelrow-meta">
+                <a class="channelrow-name" href="{% url 'users:channel' video.uploader.username %}">{{ video.uploader.username }}</a>
+                <div class="channelrow-subs"><span id="subscriber-count">{{ video.uploader.profile.subscribers_count }}</span> subscribers</div>
+            </div>
+            {% if user.is_authenticated and user != video.uploader %}
+            <form id="subscribe-form" method="post" action="{% url 'interactions:toggle_subscription' video.uploader.id %}">
+                {% csrf_token %}
+                <button type="submit" id="subscribe-button" class="button button-pill{% if is_subscribed %} button-secondary{% endif %}">
+                    {% if is_subscribed %}Subscribed{% else %}Subscribe{% endif %}
+                </button>
+            </form>
+            {% elif not user.is_authenticated %}
+            <a href="{% url 'users:login' %}?next={{ request.path }}" class="button button-pill">Subscribe</a>
             {% endif %}
         </div>
+
+        <div class="watch-actions">
+            {% if user.is_authenticated %}
+            <form id="vote-form" method="post" action="{% url 'interactions:vote_video' video.id %}" class="pillgroup">
+                {% csrf_token %}
+                <button type="submit" name="vote_type" value="like" id="like-button"
+                        class="{% if user_vote == 'like' %}active{% endif %}" aria-label="Like">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>
+                    <span id="likes-count-display">{{ likes_count }}</span>
+                </button>
+                <span class="pillgroup-div"></span>
+                <button type="submit" name="vote_type" value="dislike" id="dislike-button"
+                        class="{% if user_vote == 'dislike' %}active-danger{% endif %}" aria-label="Dislike">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg>
+                    <span id="dislikes-count-display">{{ dislikes_count }}</span>
+                </button>
+            </form>
+            {% else %}
+            <div class="pillgroup">
+                <span class="pillgroup-stat">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>
+                    <span id="likes-count-display">{{ likes_count }}</span>
+                </span>
+                <span class="pillgroup-div"></span>
+                <span class="pillgroup-stat">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg>
+                    <span id="dislikes-count-display">{{ dislikes_count }}</span>
+                </span>
+            </div>
+            <p class="login-hint"><a href="{% url 'users:login' %}?next={{ request.path }}">Log in</a> to like or dislike.</p>
+            {% endif %}
+            {% if request.user == video.uploader %}
+            <a href="{% url 'videos:edit_video' video.id %}" class="button button-secondary button-pill">Edit Video</a>
+            <a href="{% url 'videos:delete_video' video.id %}" class="button button-danger button-pill">Delete Video</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="descbox">
+        <div class="descbox-stats">
+            {{ video.views_count }} views · {{ video.upload_date|date:"Y-m-d" }} · {{ video.get_visibility_display }}{% if video.category %} · <a href="{% url 'videos:videos_by_category' video.category.slug %}">{{ video.category.name }}</a>{% endif %}
+        </div>
+        {% if video.description %}
+        <div class="descbox-text">{{ video.description|linebreaksbr }}</div>
+        {% endif %}
         {% if video.tags.all %}
-        <div class="video-tags">
+        <div class="tagrow">
             {% for tag in video.tags.all %}
                 <a href="{% url 'videos:videos_by_tag' tag.slug %}" class="tag-link">{{ tag.name }}</a>
             {% endfor %}
         </div>
-        {% endif %}
-        {% if request.user == video.uploader %}
-            <div style="margin-bottom: 16px; display: flex; gap: 8px;">
-                <a href="{% url 'videos:edit_video' video.id %}" class="button button-secondary">Edit Video</a>
-                <a href="{% url 'videos:delete_video' video.id %}" class="button button-danger">Delete Video</a>
-            </div>
-        {% endif %}
-        <div class="video-description">
-            {{ video.description|linebreaksbr }}
-        </div>
-    </div>
-
-    <div class="interactions-section">
-        <h4>Likes / Dislikes</h4>
-        <div>
-            <span id="likes-count-display">Likes: {{ likes_count }}</span>
-            <span style="color: var(--text-muted); margin: 0 8px;">|</span>
-            <span id="dislikes-count-display">Dislikes: {{ dislikes_count }}</span>
-        </div>
-        {% if user.is_authenticated %}
-        <form id="vote-form" method="post" action="{% url 'interactions:vote_video' video.id %}" style="margin-top: 12px; display: flex; gap: 8px;">
-            {% csrf_token %}
-            <button type="submit" name="vote_type" value="like"
-                    class="button button-secondary {% if user_vote == 'like' %}active{% endif %}" id="like-button">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
-                Like
-            </button>
-            <button type="submit" name="vote_type" value="dislike"
-                    class="button button-secondary {% if user_vote == 'dislike' %}active-danger{% endif %}" id="dislike-button">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"/></svg>
-                Dislike
-            </button>
-        </form>
-        {% else %}
-            <p style="margin-top: 12px;"><a href="{% url 'users:login' %}?next={{ request.path }}">Log in</a> to like or dislike.</p>
         {% endif %}
     </div>
 
@@ -209,36 +241,78 @@
 
                 function setupQualitySelector() {
                     const control = document.getElementById('quality-control');
-                    const selector = document.getElementById('quality-selector');
-                    if (!control || !selector || selector.options.length > 0 || hls.levels.length < 2) {
+                    const toggle = document.getElementById('quality-toggle');
+                    const menu = document.getElementById('quality-menu');
+                    const label = document.getElementById('quality-label');
+                    if (!control || !toggle || !menu || menu.querySelector('.quality-menu-item') || hls.levels.length < 2) {
                         return;
                     }
 
-                    const autoOption = document.createElement('option');
-                    autoOption.value = '-1';
-                    autoOption.textContent = 'Auto';
-                    selector.appendChild(autoOption);
+                    const CHECK_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
 
                     // hls.levels 依 bitrate 由低到高排序，倒序加入讓高畫質排前面
+                    const entries = [{ level: -1, text: 'Auto', hd: false }];
                     for (let i = hls.levels.length - 1; i >= 0; i--) {
-                        const option = document.createElement('option');
-                        option.value = String(i);
-                        option.textContent = hls.levels[i].height + 'p';
-                        selector.appendChild(option);
+                        entries.push({ level: i, text: hls.levels[i].height + 'p', hd: hls.levels[i].height >= 720 });
                     }
-                    selector.value = '-1';
 
-                    selector.addEventListener('change', function() {
-                        hls.currentLevel = parseInt(selector.value, 10);
+                    entries.forEach(function(entry) {
+                        const item = document.createElement('button');
+                        item.type = 'button';
+                        item.className = 'quality-menu-item';
+                        item.setAttribute('role', 'menuitemradio');
+                        item.dataset.level = String(entry.level);
+                        item.innerHTML = '<span class="quality-menu-check"></span><span>' + entry.text + '</span>'
+                            + (entry.hd ? '<span class="quality-menu-hd">HD</span>' : '');
+                        item.addEventListener('click', function() {
+                            hls.currentLevel = entry.level;
+                            setActive(entry.level);
+                            closeMenu();
+                        });
+                        menu.appendChild(item);
+                    });
+
+                    function setActive(level) {
+                        menu.querySelectorAll('.quality-menu-item').forEach(function(item) {
+                            const isActive = parseInt(item.dataset.level, 10) === level;
+                            item.classList.toggle('is-active', isActive);
+                            item.setAttribute('aria-checked', String(isActive));
+                            item.querySelector('.quality-menu-check').innerHTML = isActive ? CHECK_SVG : '';
+                        });
+                        label.textContent = level === -1 ? 'Auto' : hls.levels[level].height + 'p';
+                    }
+
+                    function closeMenu() {
+                        menu.hidden = true;
+                        toggle.classList.remove('is-open');
+                        toggle.setAttribute('aria-expanded', 'false');
+                    }
+
+                    toggle.addEventListener('click', function() {
+                        if (menu.hidden) {
+                            menu.hidden = false;
+                            toggle.classList.add('is-open');
+                            toggle.setAttribute('aria-expanded', 'true');
+                        } else {
+                            closeMenu();
+                        }
+                    });
+
+                    document.addEventListener('mousedown', function(e) {
+                        if (!menu.hidden && !control.contains(e.target)) closeMenu();
+                    });
+                    document.addEventListener('keydown', function(e) {
+                        if (e.key === 'Escape' && !menu.hidden) closeMenu();
                     });
 
                     // 自動模式下顯示目前實際播放的畫質
                     hls.on(Hls.Events.LEVEL_SWITCHED, function(event, data) {
-                        autoOption.textContent = hls.autoLevelEnabled
-                            ? 'Auto (' + hls.levels[data.level].height + 'p)'
-                            : 'Auto';
+                        if (hls.autoLevelEnabled) {
+                            label.textContent = 'Auto (' + hls.levels[data.level].height + 'p)';
+                        }
                     });
 
+                    setActive(-1);
                     control.style.display = 'flex';
                 }
 
@@ -276,5 +350,31 @@
         {% load static %}
         <script src="{% static 'js/video_interactions.js' %}"></script>
     </div>
+    </div>
+
+    <aside class="watch-aside">
+        {% if related_videos %}
+        <div class="upnext-title">Up next</div>
+        <div class="upnext-list">
+            {% for rv in related_videos %}
+            <a class="upnext-card" href="{% url 'videos:video_detail' rv.id %}">
+                <div class="upnext-thumb">
+                    {# placeholder 永遠墊底，縮圖載入失敗時 onerror 移除 img 即可露出 #}
+                    <div class="upnext-thumb-ph"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m6 3 14 9-14 9V3z"/></svg></div>
+                    {% if rv.thumbnail %}
+                    <img src="{{ rv.thumbnail.url }}" alt="" loading="lazy" onerror="this.remove()">
+                    {% endif %}
+                </div>
+                <div class="upnext-meta">
+                    <div class="upnext-card-title">{{ rv.title }}</div>
+                    <div class="upnext-card-channel">{{ rv.uploader.username }}</div>
+                    <div class="upnext-card-stats">{{ rv.views_count }} views · {{ rv.upload_date|timesince }} ago</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </aside>
+  </div>
 </div>
 {% endblock %}

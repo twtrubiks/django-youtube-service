@@ -1,11 +1,14 @@
 <div class="video-item">
     <a href="{% url 'videos:video_detail' video.id %}">
         <div class="video-item__thumbnail">
+            {# placeholder 永遠墊底，縮圖載入失敗時 onerror 移除 img 即可露出 #}
+            <div class="video-item__thumbnail-placeholder">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="m6 3 14 9-14 9V3z"/></svg>
+            </div>
             {% if video.thumbnail %}
-                <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail" loading="lazy">
-            {% else %}
-                <div class="video-item__thumbnail-placeholder">No Thumbnail</div>
+                <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail" loading="lazy" onerror="this.remove()">
             {% endif %}
+            <div class="video-item__hoverplay"><span><svg viewBox="0 0 24 24" fill="currentColor"><path d="m6 3 14 9-14 9V3z"/></svg></span></div>
         </div>
     </a>
     <div class="video-item__info">

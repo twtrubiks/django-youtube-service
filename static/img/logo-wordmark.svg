@@ -1,0 +1,12 @@
+<svg width="260" height="64" viewBox="0 0 260 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="StreamCraft">
+  <defs>
+    <linearGradient id="sc-flame-wm" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF6F57"></stop>
+      <stop offset="1" stop-color="#ED3320"></stop>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="18" fill="url(#sc-flame-wm)"></rect>
+  <path d="M26 22.4c0-1.93 2.1-3.12 3.76-2.14l16.2 9.6c1.63.97 1.63 3.32 0 4.28l-16.2 9.6C28.1 44.72 26 43.53 26 41.6V22.4Z" fill="#fff"></path>
+  <path d="M18.5 25v14" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity="0.55"></path>
+  <text x="78" y="41" font-family="&#39;Helvetica Neue&#39;,Helvetica,Arial,sans-serif" font-size="28" font-weight="700" letter-spacing="-1.4" fill="#16161A">Stream<tspan fill="#ED3320">Craft</tspan></text>
+</svg>

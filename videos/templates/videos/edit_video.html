@@ -50,7 +50,8 @@
         {% endif %}
         {% if video.thumbnail %}
             <h3 style="font-size: 16px; font-weight: 600; margin-top: 20px; margin-bottom: 12px; color: var(--text);">Current Thumbnail:</h3>
-            <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail" style="max-width: 100%; width: 320px; height: auto; border-radius: var(--radius-sm); display: block;">
+            {# 縮圖檔遺失時連同標題與提示一起隱藏，避免破圖 #}
+            <img src="{{ video.thumbnail.url }}" alt="{{ video.title }} thumbnail" style="max-width: 100%; width: 320px; height: auto; border-radius: var(--radius-sm); display: block;" onerror="this.previousElementSibling.remove(); this.nextElementSibling.remove(); this.remove()">
             <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">If you upload a new thumbnail, it will replace the current one.</p>
         {% endif %}
     </div>

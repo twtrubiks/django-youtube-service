@@ -219,14 +219,49 @@ function initVoteForm() {
         .then(function(response) { return response.json(); })
         .then(function(data) {
             if (data.status === 'success') {
-                document.getElementById('likes-count-display').textContent = 'Likes: ' + data.likes_count;
-                document.getElementById('dislikes-count-display').textContent = 'Dislikes: ' + data.dislikes_count;
+                document.getElementById('likes-count-display').textContent = data.likes_count;
+                document.getElementById('dislikes-count-display').textContent = data.dislikes_count;
                 var likeBtn = document.getElementById('like-button');
                 var dislikeBtn = document.getElementById('dislike-button');
                 likeBtn.classList.remove('active');
                 dislikeBtn.classList.remove('active-danger');
                 if (data.current_user_vote_type === 'like') likeBtn.classList.add('active');
                 else if (data.current_user_vote_type === 'dislike') dislikeBtn.classList.add('active-danger');
+            } else {
+                showToast('Error: ' + data.message);
+            }
+        })
+        .catch(function(error) {
+            console.error('Error:', error);
+            showToast('An unexpected error occurred.');
+        });
+    });
+}
+
+function initSubscribeForm() {
+    var form = document.getElementById('subscribe-form');
+    if (!form) return;
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { 'X-CSRFToken': window.csrftoken, 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            if (data.status === 'success') {
+                var btn = document.getElementById('subscribe-button');
+                var count = document.getElementById('subscriber-count');
+                if (count) count.textContent = data.subscribers_count;
+                if (data.subscribed) {
+                    btn.textContent = 'Subscribed';
+                    btn.classList.add('button-secondary');
+                } else {
+                    btn.textContent = 'Subscribe';
+                    btn.classList.remove('button-secondary');
+                }
             } else {
                 showToast('Error: ' + data.message);
             }
@@ -246,4 +281,5 @@ document.addEventListener('DOMContentLoaded', function() {
     bindRepliesToggles(document);
     initLoadMoreComments();
     initVoteForm();
+    initSubscribeForm();
 });

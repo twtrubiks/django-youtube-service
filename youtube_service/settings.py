@@ -93,6 +93,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "django.template.context_processors.media",  # Added for media files in templates
+                "videos.context_processors.categories",  # 側欄/分類列的分類清單
             ],
         },
     },
