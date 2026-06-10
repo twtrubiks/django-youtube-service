@@ -277,29 +277,8 @@ def delete_video(request, video_id):
         return redirect(reverse("videos:video_detail", args=[video.id]))
 
     if request.method == "POST":
-        video_path = os.path.join(settings.MEDIA_ROOT, str(video.video_file))
-        thumbnail_path = None
-        if video.thumbnail:
-            thumbnail_path = os.path.join(settings.MEDIA_ROOT, str(video.thumbnail))
-
         video_title = video.title
-        video.delete()  # Delete the video record from the database
-
-        # Attempt to delete the video file
-        try:
-            if os.path.exists(video_path):
-                os.remove(video_path)
-        except OSError:
-            logger.exception("刪除影片檔案失敗: %s", video_path)
-            messages.warning(request, f"成功從資料庫刪除影片 '{video_title}' 的記錄，但刪除影片檔案時發生錯誤。")
-
-        if thumbnail_path:
-            try:
-                if os.path.exists(thumbnail_path):
-                    os.remove(thumbnail_path)
-            except OSError:
-                logger.exception("刪除縮圖檔案失敗: %s", thumbnail_path)
-                messages.warning(request, "刪除縮圖檔案時發生錯誤。")
+        video.delete()  # post_delete signal 會一併清理影片檔、縮圖、HLS 目錄與轉檔暫存副本
 
         messages.success(request, f"影片 '{video_title}' 已成功刪除。")
         # Redirect to user's channel or home page

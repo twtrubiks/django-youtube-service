@@ -51,6 +51,23 @@ def _get_exception_message(e):
     return f"{type(e).__name__}: {object.__repr__(e)}"
 
 
+def _remove_file_if_exists(file_path):
+    """刪除檔案，失敗只記 log 不中斷流程。"""
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except OSError:
+        logger.exception("刪除暫存檔案失敗: %s", file_path)
+
+
+def _remove_hls_input_copy(input_file_path):
+    """刪除 HLS 輸入的轉檔暫存副本；僅限 processed_videos 目錄內，避免誤刪 storage 中的影片檔。"""
+    processed_dir = os.path.realpath(os.path.join(settings.MEDIA_ROOT, "videos", "processed_videos"))
+    real_path = os.path.realpath(input_file_path)
+    if real_path.startswith(processed_dir + os.sep):
+        _remove_file_if_exists(real_path)
+
+
 def transcode_video(video, original_file_path, file_name_without_ext):
     """轉檔影片為 MP4 格式，回傳輸出檔案路徑。"""
     processed_file_name = f"{file_name_without_ext}_processed.mp4"
@@ -112,6 +129,9 @@ def generate_thumbnail(video, input_file_path, file_name_without_ext):
         video.thumbnail.save(thumbnail_file_name, File(f), save=False)
     video.processing_status = "thumbnail_generated"
     video.save(update_fields=["processing_status", "thumbnail"])
+
+    # 縮圖已存入 storage，刪除 ffmpeg 的暫存輸出
+    _remove_file_if_exists(thumbnail_path)
     return thumbnail_path
 
 
@@ -141,11 +161,16 @@ def process_video(self, video_id):
         # Step 1: 轉檔
         output_path = transcode_video(video, original_file_path, file_name_without_ext)
 
-        # Step 2: 產生 HLS（非同步，不阻塞主流程）
-        generate_hls_files.delay(video_id, output_path, file_name_without_ext)
+        # 轉檔結果已存入 storage，原始上傳檔不再被引用，刪除以釋放空間
+        if original_file_path != video.video_file.path:
+            _remove_file_if_exists(original_file_path)
 
-        # Step 3: 產生縮圖
+        # Step 2: 產生縮圖
         generate_thumbnail(video, output_path, file_name_without_ext)
+
+        # Step 3: 產生 HLS（非同步，不阻塞主流程）
+        # 最後派發：HLS 任務是 output_path 的最後使用者，完成後會負責清理該暫存副本
+        generate_hls_files.delay(video_id, output_path, file_name_without_ext)
 
         video.processing_status = "completed"
         video.save(update_fields=["processing_status"])
@@ -220,6 +245,9 @@ def generate_hls_files(self, video_id, input_file_path, file_name_without_ext):
         video.hls_path = os.path.join(hls_dir_name, video_hls_dir, playlist_filename)
         video.hls_status = "completed"
         video.save(update_fields=["hls_path", "hls_status"])
+
+        # HLS 生成完畢，轉檔暫存副本不再需要
+        _remove_hls_input_copy(input_file_path)
         return True
 
     except Exception as exc:
@@ -229,4 +257,6 @@ def generate_hls_files(self, video_id, input_file_path, file_name_without_ext):
         except MaxRetriesExceededError:
             logger.error("影片 ID %s 的 HLS 生成已達重試上限，標記為 failed", video_id)
             Video.objects.filter(id=video_id).update(hls_status="failed")
+            # 重試已耗盡，暫存副本不再需要（admin 重新生成走 storage 中的影片檔）
+            _remove_hls_input_copy(input_file_path)
             return False

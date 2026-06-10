@@ -700,6 +700,72 @@ class DeleteVideoViewTests(TestCase):
         self.assertTrue(reverse("users:login") in response.url)
 
 
+class VideoFileCleanupTests(TestCase):
+    """影片刪除後的檔案清理測試（post_delete signal）"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="cleanup_user", password="password123")
+
+    def test_delete_video_removes_all_related_files(self):
+        """刪除影片時，影片檔、縮圖、HLS 目錄與轉檔暫存副本都應一併刪除"""
+        video = Video.objects.create(
+            title="Cleanup Video",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("cleanup_test.mp4", b"video content"),
+            thumbnail=SimpleUploadedFile("cleanup_thumb.jpg", b"thumb content"),
+        )
+        video_path = video.video_file.path
+        thumbnail_path = video.thumbnail.path
+
+        # 模擬轉檔暫存副本與 HLS 目錄
+        processed_dir = os.path.join(settings.MEDIA_ROOT, "videos", "processed_videos")
+        os.makedirs(processed_dir, exist_ok=True)
+        processed_copy = os.path.join(processed_dir, os.path.basename(video.video_file.name))
+        with open(processed_copy, "wb") as f:
+            f.write(b"processed content")
+
+        hls_dir = os.path.join(settings.MEDIA_ROOT, "hls", f"{video.id}_cleanup_test")
+        os.makedirs(hls_dir, exist_ok=True)
+        with open(os.path.join(hls_dir, "playlist.m3u8"), "wb") as f:
+            f.write(b"#EXTM3U")
+        video.hls_path = os.path.join("hls", f"{video.id}_cleanup_test", "playlist.m3u8")
+        video.save(update_fields=["hls_path"])
+
+        video.delete()
+
+        self.assertFalse(os.path.exists(video_path))
+        self.assertFalse(os.path.exists(thumbnail_path))
+        self.assertFalse(os.path.exists(processed_copy))
+        self.assertFalse(os.path.exists(hls_dir))
+
+    def test_delete_video_with_unsafe_hls_path_skips_directory_removal(self):
+        """hls_path 指向 media/hls 之外時，不應刪除任何目錄"""
+        video = Video.objects.create(
+            title="Unsafe HLS Video",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("unsafe_hls.mp4", b"content"),
+            hls_path="../outside/playlist.m3u8",
+        )
+        with patch("videos.signals.shutil.rmtree") as mock_rmtree:
+            video.delete()
+
+        mock_rmtree.assert_not_called()
+
+    def test_delete_video_missing_files_does_not_raise(self):
+        """關聯檔案已不存在時，刪除影片不應拋出例外"""
+        video = Video.objects.create(
+            title="No Files Video",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("missing_files.mp4", b"content"),
+            hls_path="hls/999_missing/playlist.m3u8",
+        )
+        os.remove(video.video_file.path)
+
+        video.delete()
+
+        self.assertFalse(Video.objects.filter(id=video.id).exists())
+
+
 class VideosByCategoryViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="cat_user", password="password123")
@@ -1111,6 +1177,29 @@ class ProcessVideoTaskTests(TestCase):
 
             self.assertEqual(mock_ffmpeg_module.input.call_count, 2)
 
+    @patch("videos.tasks.generate_hls_files")
+    @patch("videos.tasks.ffmpeg")
+    @patch("videos.tasks.os.makedirs")
+    @patch("videos.tasks.open", new_callable=mock_open)
+    def test_process_video_removes_original_file_after_transcode(
+        self, mock_open_file, mock_os_makedirs, mock_ffmpeg_module, mock_generate_hls
+    ):
+        """轉檔成功並存入 storage 後，原始上傳檔應被刪除"""
+        mock_ffmpeg_module.Error = ffmpeg.Error
+        mock_ffmpeg_module.input.return_value.output.return_value.run.return_value = (b"", b"")
+
+        original_path = self.video.video_file.path
+        self.assertTrue(os.path.exists(original_path))
+
+        def fake_field_file_save(field_file, name, content, save=True):
+            # 模擬 storage 存入新檔案後，FieldFile 指向新路徑
+            field_file.name = f"videos/{name}"
+
+        with patch("django.db.models.fields.files.FieldFile.save", autospec=True, side_effect=fake_field_file_save):
+            process_video(self.video.id)
+
+        self.assertFalse(os.path.exists(original_path))
+
     def test_process_video_video_does_not_exist(self):
         """測試處理不存在的影片"""
         result = process_video(99999888777)
@@ -1240,6 +1329,34 @@ class HLSFunctionalityTests(TestCase):
             self.assertFalse(result)
             self.video.refresh_from_db()
             self.assertEqual(self.video.hls_status, "failed")
+
+    @patch("videos.tasks.os.makedirs")
+    def test_generate_hls_files_removes_input_copy_on_success(self, mock_makedirs):
+        """HLS 生成成功後，processed_videos 中的轉檔暫存副本應被刪除"""
+        processed_dir = os.path.join(settings.MEDIA_ROOT, "videos", "processed_videos")
+        os.makedirs(processed_dir, exist_ok=True)
+        input_copy = os.path.join(processed_dir, "hls_input_test_processed.mp4")
+        with open(input_copy, "wb") as f:
+            f.write(b"processed content")
+
+        with patch("videos.tasks.ffmpeg") as mock_ffmpeg:
+            mock_ffmpeg.input.return_value.output.return_value.run.return_value = (b"", b"")
+            result = generate_hls_files(self.video.id, input_copy, "hls_input_test")
+
+        self.assertTrue(result)
+        self.assertFalse(os.path.exists(input_copy))
+
+    @patch("videos.tasks.os.makedirs")
+    def test_generate_hls_files_keeps_input_outside_processed_dir(self, mock_makedirs):
+        """輸入檔不在 processed_videos 內（如 admin 重新生成）時，不應被刪除"""
+        input_path = self.video.video_file.path  # 位於 media/videos/
+
+        with patch("videos.tasks.ffmpeg") as mock_ffmpeg:
+            mock_ffmpeg.input.return_value.output.return_value.run.return_value = (b"", b"")
+            result = generate_hls_files(self.video.id, input_path, "hls_keep_test")
+
+        self.assertTrue(result)
+        self.assertTrue(os.path.exists(input_path))
 
     def test_generate_hls_files_skips_when_already_completed(self):
         """測試 HLS 已完成時跳過重複生成（冪等保護）"""
