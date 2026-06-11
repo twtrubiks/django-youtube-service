@@ -61,19 +61,19 @@ This project was developed as a practical implementation using [Roo-Code](https:
 
 Main Page (The little bell in the top right corner is a real-time notification feature implemented using Django Channels)
 
-![alt tag](https://cdn.imgpile.com/f/hKDF6qO_xl.png)
+![alt tag](https://cdn.imgpile.com/f/tqglxY5_xl.png)
 
-Watch Page
+Watch Page (a quality switch button appears if quality switching is supported)
 
-![alt tag](https://cdn.imgpile.com/f/N9ZlusX_xl.png)
+![alt tag](https://cdn.imgpile.com/f/Lj7mdxL_xl.png)
 
 Profile Page
 
-![alt tag](https://cdn.imgpile.com/f/eooZDqW_xl.png)
+![alt tag](https://cdn.imgpile.com/f/c2D2CpJ_md.png)
 
 Comments
 
-![alt tag](https://cdn.imgpile.com/f/mAIrOVd_xl.png)
+![alt tag](https://cdn.imgpile.com/f/gXILnSa_xl.png)
 
 ## ✨ Core Features
 
@@ -171,7 +171,7 @@ Comments
 
 ```bash
 # Start all services
-docker-compose up --build
+docker compose up --build
 ```
 
 #### Production Deployment

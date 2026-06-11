@@ -284,7 +284,7 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_TASK_TIME_LIMIT = 1800  # 30 分鐘硬限制
 CELERY_TASK_SOFT_TIME_LIMIT = 1500  # 25 分鐘軟限制
-# 轉檔等長任務走獨立 transcode queue，避免占滿 worker slot 卡住即時通知（見 docker-compose worker-transcode）
+# 轉檔等長任務走獨立 transcode queue，避免占滿 worker slot 卡住即時通知（見 docker-compose.yml worker-transcode）
 CELERY_TASK_ROUTES = {
     "videos.tasks.*": {"queue": "transcode"},
 }

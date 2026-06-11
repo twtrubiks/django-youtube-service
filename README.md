@@ -61,19 +61,19 @@ graph TB
 
 主畫面 (右上角的小鈴鐺是使用 Django Channels 實作的即時通知 )
 
-![alt tag](https://cdn.imgpile.com/f/hKDF6qO_xl.png)
+![alt tag](https://cdn.imgpile.com/f/tqglxY5_xl.png)
 
-觀看頁面
+觀看頁面, 如果支援畫質切換會有按鈕
 
-![alt tag](https://cdn.imgpile.com/f/N9ZlusX_xl.png)
+![alt tag](https://cdn.imgpile.com/f/Lj7mdxL_xl.png)
 
 個人主頁
 
-![alt tag](https://cdn.imgpile.com/f/eooZDqW_xl.png)
+![alt tag](https://cdn.imgpile.com/f/c2D2CpJ_md.png)
 
 留言
 
-![alt tag](https://cdn.imgpile.com/f/mAIrOVd_xl.png)
+![alt tag](https://cdn.imgpile.com/f/gXILnSa_xl.png)
 
 ## ✨ 核心功能特色
 
@@ -171,7 +171,7 @@ graph TB
 
 ```bash
 # 啟動所有服務
-docker-compose up --build
+docker compose up --build
 ```
 
 #### 生產環境部署
