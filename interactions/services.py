@@ -1,6 +1,3 @@
-# 標準庫 imports
-import json
-
 # 本地應用 imports
 from .models import Notification
 from .tasks import send_channel_notification
@@ -9,7 +6,7 @@ from .tasks import send_channel_notification
 def notify(recipient, payload, *, sender=None):
     """先持久化通知，再排程 WebSocket 推播（persist-then-push）。
 
-    message 欄位存 payload 的 JSON 字串（前端通知面板會解析渲染），
+    message 欄位直接存 payload（jsonb，前端通知面板渲染用），
     link 取 payload 的 url；推播訊息額外帶上 id 供前端標記已讀。
     """
     if not recipient.is_active:
@@ -18,7 +15,7 @@ def notify(recipient, payload, *, sender=None):
     notification = Notification.objects.create(
         recipient=recipient,
         sender=sender,
-        message=json.dumps(payload),
+        message=payload,
         link=payload.get("url"),
     )
     send_channel_notification.delay(

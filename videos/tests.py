@@ -230,6 +230,19 @@ class VideoModelTests(BaseVideoTestCase):
         self.assertEqual(self.video.likes_count(), 1)
         self.assertEqual(self.video.dislikes_count(), 1)
 
+    def test_video_vote_counts_single_query(self):
+        """vote_counts() 應以單次查詢回傳與個別 count 相同的讚/倒讚數"""
+        liker = User.objects.create_user(username="vc_liker", password="password123")
+        disliker = User.objects.create_user(username="vc_disliker", password="password123")
+
+        self.assertEqual(self.video.vote_counts(), {"likes": 0, "dislikes": 0})
+
+        LikeDislike.objects.create(video=self.video, user=liker, type=LikeDislike.LIKE)
+        LikeDislike.objects.create(video=self.video, user=disliker, type=LikeDislike.DISLIKE)
+
+        with self.assertNumQueries(1):
+            self.assertEqual(self.video.vote_counts(), {"likes": 1, "dislikes": 1})
+
     def test_video_upload_date_default(self):
         """測試 upload_date 是否使用 timezone.now 作為預設值"""
         now = timezone.now()

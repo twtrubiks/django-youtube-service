@@ -1,5 +1,4 @@
 # 標準庫 imports
-import json
 import logging
 from itertools import batched
 
@@ -54,7 +53,6 @@ def notify_subscribers_of_new_video(video_id):
         "thumbnail_url": video.thumbnail.url if video.thumbnail else None,
         "url": video_url,
     }
-    message = json.dumps(payload)
     channel_layer = get_channel_layer()
 
     subscriber_ids = (
@@ -64,7 +62,7 @@ def notify_subscribers_of_new_video(video_id):
     )
     for batch in batched(subscriber_ids, NOTIFY_BATCH_SIZE, strict=False):
         notifications = Notification.objects.bulk_create(
-            Notification(recipient_id=subscriber_id, sender=video.uploader, message=message, link=video_url)
+            Notification(recipient_id=subscriber_id, sender=video.uploader, message=payload, link=video_url)
             for subscriber_id in batch
         )
         for notification in notifications:

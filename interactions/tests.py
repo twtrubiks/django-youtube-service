@@ -519,7 +519,7 @@ class ToggleSubscriptionViewTests(TestCase):
         notification = Notification.objects.get(recipient=self.channel_owner)
         self.assertEqual(notification.sender, self.subscriber_user)
         self.assertEqual(notification.link, f"/users/channel/{self.subscriber_user.username}/")
-        payload = json.loads(notification.message)
+        payload = notification.message
         self.assertEqual(payload["type"], "new_subscription")
         self.assertEqual(payload["subscriber_name"], self.subscriber_user.username)
 
@@ -571,7 +571,7 @@ class SignalHandlerTests(TestCase):
         notification = Notification.objects.get(recipient=self.uploader)
         self.assertEqual(notification.sender, self.commenter)
         self.assertEqual(notification.link, f"/videos/{video.id}/?comment={comment.id}#comment-{comment.id}")
-        payload = json.loads(notification.message)
+        payload = notification.message
         self.assertEqual(payload["type"], "new_comment_on_video")
         self.assertEqual(payload["comment_id"], comment.id)
         mock_send.assert_called_once()
@@ -584,7 +584,7 @@ class SignalHandlerTests(TestCase):
 
         notification = Notification.objects.get(recipient=self.uploader)
         self.assertEqual(notification.link, f"/videos/{video.id}/?comment={parent.id}#comment-{reply.id}")
-        payload = json.loads(notification.message)
+        payload = notification.message
         self.assertEqual(payload["type"], "new_reply")
         self.assertEqual(payload["parent_comment_id"], parent.id)
         mock_send.assert_called_once()
@@ -626,7 +626,7 @@ class NotifySubscribersOfNewVideoTaskTests(TestCase):
         notification = Notification.objects.get(recipient=self.subscriber)
         self.assertEqual(notification.sender, self.uploader)
         self.assertEqual(notification.link, f"/videos/{video.id}/")
-        payload = json.loads(notification.message)
+        payload = notification.message
         self.assertEqual(payload["type"], "new_video")
         self.assertEqual(payload["video_id"], video.id)
 

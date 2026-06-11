@@ -77,7 +77,8 @@ class Notification(models.Model):
     # Add a sender field. It can be null if the notification is system-generated
     # or doesn't have a specific sender.
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sent_notifications", null=True, blank=True)
-    message = models.TextField()
+    # 結構化通知 payload（dict）；早期純文字訊息已由 migration 轉成 JSON 字串
+    message = models.JSONField()
     # Optional link to content
     link = models.URLField(max_length=200, blank=True, null=True)
     is_read = models.BooleanField(default=False, db_index=True)
@@ -102,4 +103,4 @@ class Notification(models.Model):
         indexes = [models.Index(fields=["recipient", "-timestamp"], name="notif_recipient_ts_idx")]
 
     def __str__(self):
-        return f"Notification for {self.recipient.username}: {self.message[:50]}"
+        return f"Notification for {self.recipient.username}: {str(self.message)[:50]}"

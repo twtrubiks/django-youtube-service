@@ -104,8 +104,7 @@ def video_detail(request, video_id):
         video.refresh_from_db(fields=["views_count"])
         request.session[viewed_video_session_key] = True
 
-    likes_count = video.likes_count()
-    dislikes_count = video.dislikes_count()
+    vote_counts = video.vote_counts()
 
     # Get current user's vote
     user_vote = None
@@ -133,8 +132,8 @@ def video_detail(request, video_id):
         "comments_count": comments_count,
         "pinned_comment": pinned_comment,
         "comment_form": comment_form,
-        "likes_count": likes_count,
-        "dislikes_count": dislikes_count,
+        "likes_count": vote_counts["likes"],
+        "dislikes_count": vote_counts["dislikes"],
         "user_vote": user_vote,  # 'like', 'dislike', or None
         "category": video.category,
         "tags": video.tags.all(),

@@ -157,16 +157,15 @@ def vote_video(request, video_id):
             action_taken = "updated"
 
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
-        likes_count = video.likes_count()
-        dislikes_count = video.dislikes_count()
+        vote_counts = video.vote_counts()
         user_vote = LikeDislike.objects.filter(video=video, user=request.user).first()
         current_user_vote_type = user_vote.type if user_vote else None
 
         return JsonResponse(
             {
                 "status": "success",
-                "likes_count": likes_count,
-                "dislikes_count": dislikes_count,
+                "likes_count": vote_counts["likes"],
+                "dislikes_count": vote_counts["dislikes"],
                 "action_taken": action_taken,
                 "new_vote_type": vote_type if action_taken != "deleted" else None,
                 "current_user_vote_type": current_user_vote_type,
