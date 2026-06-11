@@ -4,7 +4,7 @@ import logging
 # Django imports
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+from django.contrib.postgres.search import TrigramWordSimilarity
 from django.core.paginator import Paginator
 from django.db.models import Count, F, Q
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
@@ -166,17 +166,24 @@ def search_videos(request):
     Returns:
         HttpResponse: 渲染的搜尋結果頁面
     """
-    query = request.GET.get("query")
+    query = request.GET.get("query", "")
     videos = Video.objects.none()
-    if query:
-        search_vector = SearchVector("title", weight="A") + SearchVector("description", weight="B")
-        search_query = SearchQuery(query, search_type="plain")
+    # 子字串匹配（icontains + trigram 索引）而非 tsvector 全文搜尋：
+    # 內建 text search config 不斷中文詞，tsvector 對中文內容幾乎無法命中。
+    # 空白分隔的關鍵字各自匹配再 AND，沿用原 SearchQuery(plain) 的多關鍵字語意。
+    terms = query.split()
+    if terms:
+        condition = Q()
+        for term in terms:
+            condition &= Q(title__icontains=term) | Q(description__icontains=term)
         videos = (
             Video.objects.listable()
-            .annotate(rank=SearchRank(search_vector, search_query))
-            .filter(Q(rank__gte=0.01) | Q(title__icontains=query))
+            .filter(condition)
+            # 排序用 word similarity：以「查詢與標題中最相似片段」計分，
+            # 避免短查詢對長標題被整串長度稀釋；title 命中者自然排在僅 description 命中者之前
+            .annotate(similarity=TrigramWordSimilarity(query, "title"))
             .select_related("uploader")
-            .order_by("-rank", "-upload_date")
+            .order_by("-similarity", "-upload_date")
         )
 
     paginator = Paginator(videos, 12)

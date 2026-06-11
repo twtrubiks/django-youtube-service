@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.contrib.postgres.indexes import GinIndex, OpClass
 from django.db import models
+from django.db.models.functions import Upper
 from django.utils import timezone
 from django.utils.encoding import filepath_to_uri
 from django.utils.text import slugify
@@ -81,7 +83,13 @@ class Video(models.Model):
     class Meta:
         # 首頁/分類/標籤/相關影片都是 listable().order_by("-upload_date")，
         # 複合索引讓分頁查詢直接走索引；visibility 低基數單欄索引由此取代
-        indexes = [models.Index(fields=["visibility", "-upload_date"], name="video_vis_upload_idx")]
+        indexes = [
+            models.Index(fields=["visibility", "-upload_date"], name="video_vis_upload_idx"),
+            # 搜尋/自動完成走 icontains，Postgres 編譯為 UPPER(col) LIKE，
+            # 故 trigram 索引必須建在 Upper() expression 上，建在欄位本身不會被使用
+            GinIndex(OpClass(Upper("title"), name="gin_trgm_ops"), name="video_title_trgm_idx"),
+            GinIndex(OpClass(Upper("description"), name="gin_trgm_ops"), name="video_desc_trgm_idx"),
+        ]
 
     def __str__(self):
         return self.title

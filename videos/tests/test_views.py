@@ -861,3 +861,95 @@ class VideoStatusViewTests(TestCase):
         self.client.login(username="status_user", password="password123")
         response = self.client.get(reverse("videos:video_status", args=[self.private_video.id]))
         self.assertEqual(response.status_code, 200)
+
+
+class SearchVideosViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="search_user", password="password123")
+        self.video_cat = Video.objects.create(
+            title="搞笑貓咪合集",
+            description="各種貓咪的日常",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("cat.mp4", b"content"),
+            visibility="public",
+            upload_date=timezone.now() - timezone.timedelta(days=1),
+        )
+        self.video_ml = Video.objects.create(
+            title="深度學習入門",
+            description="機器學習教學影片",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("ml.mp4", b"content"),
+            visibility="public",
+            upload_date=timezone.now(),
+        )
+        self.video_private = Video.objects.create(
+            title="搞笑私人影片",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("priv.mp4", b"content"),
+            visibility="private",
+        )
+
+    def search(self, query):
+        response = self.client.get(reverse("videos:search_videos"), {"query": query})
+        self.assertEqual(response.status_code, 200)
+        return list(response.context["videos"])
+
+    def test_search_chinese_title_substring(self):
+        """中文標題子字串可命中（tsvector 做不到，icontains 的核心理由）"""
+        self.assertEqual(self.search("貓咪"), [self.video_cat])
+
+    def test_search_matches_description(self):
+        self.assertEqual(self.search("機器學習"), [self.video_ml])
+
+    def test_search_multi_term_and_across_fields(self):
+        """空白分隔多關鍵字為 AND，且各 term 可命中不同欄位（title 或 description）"""
+        self.assertEqual(self.search("入門 機器"), [self.video_ml])
+
+    def test_search_multi_term_requires_all_terms(self):
+        self.assertEqual(self.search("貓咪 機器"), [])
+
+    def test_search_title_match_ranks_above_description_match(self):
+        """title 命中者應排在僅 description 命中者前面，即使前者較舊
+        （video_ml 僅 description 含「機器學習」且較新；similarity 排序須壓過時間排序）"""
+        title_hit = Video.objects.create(
+            title="機器學習實戰",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("t.mp4", b"content"),
+            visibility="public",
+            upload_date=timezone.now() - timezone.timedelta(days=30),
+        )
+        results = self.search("機器學習")
+        self.assertEqual(results, [title_hit, self.video_ml])
+
+    def test_search_excludes_private_videos(self):
+        self.assertEqual(self.search("搞笑"), [self.video_cat])
+
+    def test_search_empty_query_returns_nothing(self):
+        self.assertEqual(self.search(""), [])
+        self.assertEqual(self.search("   "), [])
+
+
+class SearchSuggestViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="suggest_user", password="password123")
+        Video.objects.create(
+            title="搞笑貓咪合集",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("s1.mp4", b"content"),
+            visibility="public",
+        )
+        Video.objects.create(
+            title="私人貓咪影片",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("s2.mp4", b"content"),
+            visibility="private",
+        )
+
+    def test_suggest_chinese_substring(self):
+        response = self.client.get(reverse("videos:search_suggest"), {"q": "貓咪"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["suggestions"], ["搞笑貓咪合集"])
+
+    def test_suggest_min_length(self):
+        response = self.client.get(reverse("videos:search_suggest"), {"q": "貓"})
+        self.assertEqual(response.json()["suggestions"], [])
