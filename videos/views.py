@@ -70,6 +70,10 @@ def video_detail(request, video_id):
     """
     video = get_object_or_404(Video, pk=video_id)
 
+    # private 影片只有上傳者本人能看；unlisted 拿到連結即可觀看（與 HLS 端點的權限一致）
+    if video.visibility == "private" and (not request.user.is_authenticated or video.uploader != request.user):
+        raise Http404("影片不存在或無權限訪問")
+
     top_level_comments = (
         Comment.objects.filter(video=video, parent_comment__isnull=True)
         .select_related("user")

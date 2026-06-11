@@ -545,6 +545,57 @@ class UserChannelViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["is_subscribed"])
 
+    def test_user_channel_view_visitor_only_sees_public_videos(self):
+        """
+        測試訪客（未登入與其他使用者）查看頻道時，只列出 public 影片。
+        """
+        public_video = Video.objects.create(
+            title="Public Video",
+            uploader=self.channel_owner,
+            video_file=SimpleUploadedFile("public.mp4", b"content"),
+            visibility="public",
+        )
+        Video.objects.create(
+            title="Private Video",
+            uploader=self.channel_owner,
+            video_file=SimpleUploadedFile("private.mp4", b"content"),
+            visibility="private",
+        )
+        Video.objects.create(
+            title="Unlisted Video",
+            uploader=self.channel_owner,
+            video_file=SimpleUploadedFile("unlisted.mp4", b"content"),
+            visibility="unlisted",
+        )
+
+        # 未登入訪客
+        response = self.client.get(reverse("users:channel", kwargs={"username": "channelowner"}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["user_videos"]), [public_video])
+
+        # 已登入的其他使用者
+        self.client.login(username="viewer", password="password123")
+        response = self.client.get(reverse("users:channel", kwargs={"username": "channelowner"}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["user_videos"]), [public_video])
+
+    def test_user_channel_view_owner_sees_all_videos(self):
+        """
+        測試本人查看自己頻道時，列出所有 visibility 的影片。
+        """
+        for visibility in ["public", "private", "unlisted"]:
+            Video.objects.create(
+                title=f"{visibility} Video",
+                uploader=self.channel_owner,
+                video_file=SimpleUploadedFile(f"{visibility}.mp4", b"content"),
+                visibility=visibility,
+            )
+
+        self.client.login(username="channelowner", password="password123")
+        response = self.client.get(reverse("users:channel", kwargs={"username": "channelowner"}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["user_videos"]), 3)
+
     def test_user_channel_view_own_channel(self):
         """
         測試使用者查看自己的頻道。

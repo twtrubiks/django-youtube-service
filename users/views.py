@@ -103,6 +103,9 @@ def user_channel_view(request, username):
         profile_owner_profile = UserProfile.objects.get(user__username=username)
         profile_owner = profile_owner_profile.user
         user_videos = Video.objects.filter(uploader=profile_owner).select_related("uploader").order_by("-upload_date")
+        # 訪客只能看到 public 影片；private/unlisted 只在本人查看自己頻道時列出
+        if request.user != profile_owner:
+            user_videos = user_videos.filter(visibility="public")
     except UserProfile.DoesNotExist:
         messages.error(request, "User channel not found.")
         # Assuming you will create a home view later. For now, redirect to login or register.

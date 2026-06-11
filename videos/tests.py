@@ -531,6 +531,38 @@ class VideoDetailViewTests(TestCase):
         response = self.client.get(reverse("videos:video_detail", args=[999]))
         self.assertEqual(response.status_code, 404)
 
+    def test_video_detail_view_private_video_hidden_from_others(self):
+        """private 影片的詳細頁對訪客與其他使用者應回 404，僅上傳者本人可觀看"""
+        private_video = Video.objects.create(
+            title="Private Detail Video",
+            uploader=self.uploader,
+            video_file=SimpleUploadedFile("private_detail.mp4", b"content"),
+            visibility="private",
+        )
+        url = reverse("videos:video_detail", args=[private_video.id])
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+        self.client.login(username="detail_viewer", password="password123")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+        self.client.login(username="detail_uploader", password="password123")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_video_detail_view_unlisted_video_accessible_via_link(self):
+        """unlisted 影片不被列出，但拿到連結的訪客可以直接觀看"""
+        unlisted_video = Video.objects.create(
+            title="Unlisted Detail Video",
+            uploader=self.uploader,
+            video_file=SimpleUploadedFile("unlisted_detail.mp4", b"content"),
+            visibility="unlisted",
+        )
+        response = self.client.get(reverse("videos:video_detail", args=[unlisted_video.id]))
+        self.assertEqual(response.status_code, 200)
+
     def test_video_detail_view_increments_view_count(self):
         initial_views = self.video.views_count
 
