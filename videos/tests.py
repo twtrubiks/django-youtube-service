@@ -1908,3 +1908,44 @@ class VideoStatusViewTests(TestCase):
         self.client.login(username="status_user", password="password123")
         response = self.client.get(reverse("videos:video_status", args=[self.private_video.id]))
         self.assertEqual(response.status_code, 200)
+
+
+class VideoAccessPolicyTests(TestCase):
+    """Video.is_accessible_by 與 VideoQuerySet.listable 的權限規則單元測試。"""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="policy_owner", password="password123")
+        self.other_user = User.objects.create_user(username="policy_other", password="password123")
+        self.videos = {
+            visibility: Video.objects.create(
+                title=f"{visibility} video",
+                uploader=self.owner,
+                video_file=SimpleUploadedFile(f"policy_{visibility}.mp4", b"video content", content_type="video/mp4"),
+                visibility=visibility,
+            )
+            for visibility in ["public", "private", "unlisted"]
+        }
+
+    def test_public_and_unlisted_accessible_by_anyone(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        for visibility in ["public", "unlisted"]:
+            video = self.videos[visibility]
+            self.assertTrue(video.is_accessible_by(AnonymousUser()))
+            self.assertTrue(video.is_accessible_by(self.other_user))
+            self.assertTrue(video.is_accessible_by(self.owner))
+
+    def test_private_accessible_only_by_owner(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        video = self.videos["private"]
+        self.assertFalse(video.is_accessible_by(AnonymousUser()))
+        self.assertFalse(video.is_accessible_by(self.other_user))
+        self.assertTrue(video.is_accessible_by(self.owner))
+
+    def test_listable_only_includes_public(self):
+        """unlisted 可存取但不可被列出，listable 僅含 public。"""
+        listable = Video.objects.listable()
+        self.assertIn(self.videos["public"], listable)
+        self.assertNotIn(self.videos["unlisted"], listable)
+        self.assertNotIn(self.videos["private"], listable)

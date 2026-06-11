@@ -836,3 +836,107 @@ class MarkNotificationViewTests(TestCase):
         response = self.client.post(reverse("interactions:mark_all_notifications_as_read"))
         data = json.loads(response.content)
         self.assertEqual(data["status"], "noop")
+
+
+class PrivateVideoInteractionAccessTests(TestCase):
+    """互動端點對 private 影片的存取控制：僅上傳者本人可用，其他人一律 404。"""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="private_owner", password=TEST_PASSWORD)
+        self.other_user = User.objects.create_user(username="private_other", password=TEST_PASSWORD)
+        self.private_video = Video.objects.create(
+            title="Private Video",
+            uploader=self.owner,
+            video_file=SimpleUploadedFile("private.mp4", TEST_VIDEO_CONTENT, TEST_VIDEO_CONTENT_TYPE),
+            visibility="private",
+        )
+        self.unlisted_video = Video.objects.create(
+            title="Unlisted Video",
+            uploader=self.owner,
+            video_file=SimpleUploadedFile("unlisted.mp4", TEST_VIDEO_CONTENT, TEST_VIDEO_CONTENT_TYPE),
+            visibility="unlisted",
+        )
+        self.private_comment = Comment.objects.create(
+            video=self.private_video, user=self.owner, content="Secret comment"
+        )
+
+    # --- get_comments ---
+
+    def test_get_comments_private_blocked_for_anonymous(self):
+        response = self.client.get(reverse("interactions:get_comments", args=[self.private_video.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_get_comments_private_blocked_for_other_user(self):
+        self.client.login(username="private_other", password=TEST_PASSWORD)
+        response = self.client.get(reverse("interactions:get_comments", args=[self.private_video.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_get_comments_private_allowed_for_owner(self):
+        self.client.login(username="private_owner", password=TEST_PASSWORD)
+        response = self.client.get(reverse("interactions:get_comments", args=[self.private_video.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Secret comment", json.loads(response.content)["html"])
+
+    def test_get_comments_unlisted_allowed_for_anonymous(self):
+        response = self.client.get(reverse("interactions:get_comments", args=[self.unlisted_video.id]))
+        self.assertEqual(response.status_code, 200)
+
+    # --- get_replies ---
+
+    def test_get_replies_private_blocked_for_anonymous(self):
+        response = self.client.get(reverse("interactions:get_replies", args=[self.private_comment.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_get_replies_private_blocked_for_other_user(self):
+        self.client.login(username="private_other", password=TEST_PASSWORD)
+        response = self.client.get(reverse("interactions:get_replies", args=[self.private_comment.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_get_replies_private_allowed_for_owner(self):
+        self.client.login(username="private_owner", password=TEST_PASSWORD)
+        response = self.client.get(reverse("interactions:get_replies", args=[self.private_comment.id]))
+        self.assertEqual(response.status_code, 200)
+
+    # --- add_comment ---
+
+    def test_add_comment_private_blocked_for_other_user(self):
+        """非擁有者留言 private 影片應 404，且不可建立留言或觸發通知。"""
+        self.client.login(username="private_other", password=TEST_PASSWORD)
+        response = self.client.post(
+            reverse("interactions:add_comment", args=[self.private_video.id]),
+            data={"content": "Should not exist"},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(Comment.objects.filter(content="Should not exist").exists())
+        self.assertFalse(Notification.objects.filter(recipient=self.owner).exists())
+
+    def test_add_comment_private_allowed_for_owner(self):
+        self.client.login(username="private_owner", password=TEST_PASSWORD)
+        response = self.client.post(
+            reverse("interactions:add_comment", args=[self.private_video.id]),
+            data={"content": "Owner comment"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Comment.objects.filter(video=self.private_video, content="Owner comment").exists())
+
+    # --- vote_video ---
+
+    def test_vote_video_private_blocked_for_other_user(self):
+        self.client.login(username="private_other", password=TEST_PASSWORD)
+        response = self.client.post(
+            reverse("interactions:vote_video", args=[self.private_video.id]),
+            data={"vote_type": LikeDislike.LIKE},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(LikeDislike.objects.filter(video=self.private_video).exists())
+
+    def test_vote_video_private_allowed_for_owner(self):
+        self.client.login(username="private_owner", password=TEST_PASSWORD)
+        response = self.client.post(
+            reverse("interactions:vote_video", args=[self.private_video.id]),
+            data={"vote_type": LikeDislike.LIKE},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            LikeDislike.objects.filter(video=self.private_video, user=self.owner, type=LikeDislike.LIKE).exists()
+        )

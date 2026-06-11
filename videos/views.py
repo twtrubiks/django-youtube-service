@@ -70,7 +70,7 @@ def video_detail(request, video_id):
     video = get_object_or_404(Video, pk=video_id)
 
     # private 影片只有上傳者本人能看；unlisted 拿到連結即可觀看（與 HLS 端點的權限一致）
-    if video.visibility == "private" and (not request.user.is_authenticated or video.uploader != request.user):
+    if not video.is_accessible_by(request.user):
         raise Http404("影片不存在或無權限訪問")
 
     top_level_comments = (
@@ -120,10 +120,7 @@ def video_detail(request, video_id):
         is_subscribed = Subscription.objects.filter(subscriber=request.user, subscribed_to=video.uploader).exists()
 
     related_videos = (
-        Video.objects.filter(visibility="public")
-        .exclude(pk=video.pk)
-        .select_related("uploader")
-        .order_by("-upload_date")[:8]
+        Video.objects.listable().exclude(pk=video.pk).select_related("uploader").order_by("-upload_date")[:8]
     )
 
     context = {
@@ -153,7 +150,7 @@ def home(request):
     Returns:
         HttpResponse: 渲染的首頁
     """
-    videos = Video.objects.filter(visibility="public").select_related("uploader").order_by("-upload_date")
+    videos = Video.objects.listable().select_related("uploader").order_by("-upload_date")
     paginator = Paginator(videos, 12)
     page_obj = paginator.get_page(request.GET.get("page"))
     return render(request, "videos/home.html", {"videos": page_obj, "page_obj": page_obj})
@@ -175,7 +172,7 @@ def search_videos(request):
         search_vector = SearchVector("title", weight="A") + SearchVector("description", weight="B")
         search_query = SearchQuery(query, search_type="plain")
         videos = (
-            Video.objects.filter(visibility="public")
+            Video.objects.listable()
             .annotate(rank=SearchRank(search_vector, search_query))
             .filter(Q(rank__gte=0.01) | Q(title__icontains=query))
             .select_related("uploader")
@@ -194,7 +191,8 @@ def search_suggest(request):
     if len(query) < 2:
         return JsonResponse({"suggestions": []})
     titles = list(
-        Video.objects.filter(title__icontains=query, visibility="public")
+        Video.objects.listable()
+        .filter(title__icontains=query)
         .values_list("title", flat=True)
         .order_by("-upload_date")[:5]
     )
@@ -225,9 +223,7 @@ def edit_video(request, video_id):
 
 def videos_by_category(request, category_slug):
     category = get_object_or_404(Category, slug=category_slug)
-    videos = (
-        Video.objects.filter(category=category, visibility="public").select_related("uploader").order_by("-upload_date")
-    )
+    videos = Video.objects.listable().filter(category=category).select_related("uploader").order_by("-upload_date")
     paginator = Paginator(videos, 12)
     page_obj = paginator.get_page(request.GET.get("page"))
     context = {
@@ -240,11 +236,7 @@ def videos_by_category(request, category_slug):
 
 def videos_by_tag(request, tag_slug):
     tag = get_object_or_404(Tag, slug=tag_slug)
-    videos = (
-        Video.objects.filter(tags__slug=tag_slug, visibility="public")
-        .select_related("uploader")
-        .order_by("-upload_date")
-    )
+    videos = Video.objects.listable().filter(tags__slug=tag_slug).select_related("uploader").order_by("-upload_date")
     paginator = Paginator(videos, 12)
     page_obj = paginator.get_page(request.GET.get("page"))
     context = {
@@ -338,7 +330,7 @@ def video_status(request, video_id):
     """回傳影片處理狀態 JSON。"""
     video = get_object_or_404(Video, pk=video_id)
     # 與 video_detail 一致：private 影片的存在與處理狀態只有上傳者可見
-    if video.visibility == "private" and (not request.user.is_authenticated or video.uploader != request.user):
+    if not video.is_accessible_by(request.user):
         raise Http404("影片不存在或無權限訪問")
     return JsonResponse({"status": video.processing_status or "pending", "hls_status": video.hls_status})
 
@@ -378,6 +370,6 @@ def media_auth(request):
 
     if video is None:
         return HttpResponseForbidden()
-    if video.visibility == "private" and video.uploader_id != request.user.id:
+    if not video.is_accessible_by(request.user):
         return HttpResponseForbidden()
     return HttpResponse(status=204)

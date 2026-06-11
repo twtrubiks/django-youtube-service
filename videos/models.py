@@ -23,6 +23,16 @@ class Category(models.Model):
         verbose_name_plural = "categories"
 
 
+class VideoQuerySet(models.QuerySet):
+    def listable(self):
+        """可出現在公開列表（首頁/搜尋/分類/標籤/相關影片/頻道訪客視角）的影片。
+
+        unlisted 是「有連結才看得到」：可被存取（見 Video.is_accessible_by）但不可被列出，
+        故僅含 public。所有列表型查詢一律走這裡，勿在 view 手寫 visibility 條件。
+        """
+        return self.filter(visibility="public")
+
+
 class Video(models.Model):
     VISIBILITY_CHOICES = [
         ("public", "Public"),
@@ -66,13 +76,23 @@ class Video(models.Model):
         default="pending",
     )
 
+    objects = VideoQuerySet.as_manager()
+
     class Meta:
-        # 首頁/分類/標籤/相關影片都是 filter(visibility="public").order_by("-upload_date")，
+        # 首頁/分類/標籤/相關影片都是 listable().order_by("-upload_date")，
         # 複合索引讓分頁查詢直接走索引；visibility 低基數單欄索引由此取代
         indexes = [models.Index(fields=["visibility", "-upload_date"], name="video_vis_upload_idx")]
 
     def __str__(self):
         return self.title
+
+    def is_accessible_by(self, user):
+        """單筆影片的存取規則：private 僅上傳者本人；public/unlisted 任何人（含匿名）可看。
+
+        所有以單支影片為對象的端點（詳細頁、狀態、media 授權、留言、按讚踩）
+        一律走這裡判斷，勿在 view 手寫 visibility 條件。
+        """
+        return self.visibility != "private" or self.uploader_id == getattr(user, "id", None)
 
     @property
     def hls_url(self):

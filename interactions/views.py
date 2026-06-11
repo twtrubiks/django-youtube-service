@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 from django.db.models import Count
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -28,6 +28,9 @@ REPLIES_PER_PAGE = 10
 @login_required
 def add_comment(request, video_id):
     video = get_object_or_404(Video, id=video_id)
+    # 與 video_detail 一致回 404，避免確認 private 影片的存在性
+    if not video.is_accessible_by(request.user):
+        raise Http404("影片不存在或無權限訪問")
     form = CommentForm(request.POST)
 
     if form.is_valid():
@@ -83,6 +86,8 @@ def add_comment(request, video_id):
 def get_comments(request, video_id):
     """回傳影片頂層留言的分頁 HTML（前端 Load more 用）。"""
     video = get_object_or_404(Video, id=video_id)
+    if not video.is_accessible_by(request.user):
+        raise Http404("影片不存在或無權限訪問")
     comments = (
         Comment.objects.filter(video=video, parent_comment__isnull=True)
         .select_related("user")
@@ -113,6 +118,8 @@ def get_comments(request, video_id):
 def get_replies(request, comment_id):
     """回傳頂層留言底下回覆的分頁 HTML（前端展開回覆用），由舊到新排序。"""
     comment = get_object_or_404(Comment.objects.select_related("video"), id=comment_id, parent_comment__isnull=True)
+    if not comment.video.is_accessible_by(request.user):
+        raise Http404("留言不存在或無權限訪問")
     replies = comment.replies.select_related("user").order_by("timestamp")
     paginator = Paginator(replies, REPLIES_PER_PAGE)
     page = paginator.get_page(request.GET.get("page"))
@@ -135,6 +142,8 @@ def get_replies(request, comment_id):
 @require_POST
 def vote_video(request, video_id):
     video = get_object_or_404(Video, id=video_id)
+    if not video.is_accessible_by(request.user):
+        raise Http404("影片不存在或無權限訪問")
     vote_type = request.POST.get("vote_type")
 
     if vote_type not in [LikeDislike.LIKE, LikeDislike.DISLIKE]:
