@@ -310,7 +310,7 @@ python manage.py test -v 2
 ```cmd
 python manage.py test videos
 
-python manage.py test videos.tests.UploadVideoViewTests.test_upload_video_view_post_successful
+python manage.py test videos.tests.test_views.UploadVideoViewTests.test_upload_video_view_post_successful
 ```
 
 ### 測試的報告 coverage

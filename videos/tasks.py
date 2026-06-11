@@ -19,36 +19,13 @@ logger = logging.getLogger(__name__)
 
 
 def _get_exception_message(e):
-    """
-    安全地從異常中提取錯誤訊息，處理 MagicMock 和 bytes 類型。
-
-    Args:
-        e: 異常物件
-
-    Returns:
-        str: 錯誤訊息字符串
-    """
-    if hasattr(e, "stderr"):
-        if hasattr(e.stderr, "_decode_return_value"):
-            try:
-                return str(e.stderr._decode_return_value)
-            except Exception as inner_e:
-                logger.error(f"Error decoding _decode_return_value: {inner_e}")
-                return f"Error: {type(e.stderr._decode_return_value).__name__} - {object.__repr__(e.stderr._decode_return_value)}"
-        elif hasattr(e.stderr, "decode") and callable(e.stderr.decode):
-            try:
-                return e.stderr.decode("utf-8", errors="replace")
-            except Exception as inner_e:
-                logger.error(f"Error decoding stderr bytes: {inner_e}")
-                return f"Error: {type(e.stderr).__name__} - {object.__repr__(e.stderr)}"
-        else:
-            # Fallback for stderr that is not bytes and not our mock
-            return str(e.stderr)
-
-    # For generic exceptions or when stderr is not present/handled,
-    # ensure a string representation is always returned.
-    # Use object.__repr__ to avoid issues with mocked __str__ methods.
-    return f"{type(e).__name__}: {object.__repr__(e)}"
+    """從異常中提取錯誤訊息；ffmpeg.Error 的 stderr 為 bytes，優先取用。"""
+    stderr = getattr(e, "stderr", None)
+    if isinstance(stderr, bytes):
+        return stderr.decode("utf-8", errors="replace")
+    if stderr is not None:
+        return str(stderr)
+    return f"{type(e).__name__}: {e}"
 
 
 def _remove_file_if_exists(file_path):
