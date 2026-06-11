@@ -27,7 +27,7 @@ from interactions.models import Comment, LikeDislike
 
 from .forms import CategoryForm, VideoUploadForm
 from .models import Category, Video
-from .tasks import generate_hls_files, process_video
+from .tasks import _resolve_transcode_codecs, generate_hls_files, process_video
 
 
 class TestConstants:
@@ -38,6 +38,14 @@ class TestConstants:
     # process_video 的 ffprobe 預檢需要 probe 回傳有效結果才能進入轉檔流程
     VALID_PROBE_RESULT = {
         "streams": [{"codec_type": "video", "width": 1280, "height": 720}],
+        "format": {"duration": "120.0"},
+    }
+    # 來源已是 H.264/AAC，轉檔應走 stream copy（remux）路徑
+    H264_AAC_PROBE_RESULT = {
+        "streams": [
+            {"codec_type": "video", "codec_name": "h264", "pix_fmt": "yuv420p", "width": 1920, "height": 1080},
+            {"codec_type": "audio", "codec_name": "aac"},
+        ],
         "format": {"duration": "120.0"},
     }
     VALID_PNG_CONTENT = (
@@ -1167,6 +1175,37 @@ class TestSpecificFFmpegError(ffmpeg.Error):
         return f"{self.message} (Cmd: {self.cmd}, Stdout: {decoded_stdout}, Stderr: {decoded_stderr})"
 
 
+class ResolveTranscodeCodecsTests(TestCase):
+    """轉檔 codec 判斷測試：來源相容時 stream copy，否則重新編碼"""
+
+    def _probe(self, video_stream, audio_stream=None):
+        streams = [dict(video_stream, codec_type="video")]
+        if audio_stream:
+            streams.append(dict(audio_stream, codec_type="audio"))
+        return {"streams": streams, "format": {"duration": "10.0"}}
+
+    def test_h264_aac_source_copies_both(self):
+        probe = self._probe({"codec_name": "h264", "pix_fmt": "yuv420p"}, {"codec_name": "aac"})
+        self.assertEqual(_resolve_transcode_codecs(probe), ("copy", "copy"))
+
+    def test_non_aac_audio_still_copies_video(self):
+        probe = self._probe({"codec_name": "h264", "pix_fmt": "yuv420p"}, {"codec_name": "mp3"})
+        self.assertEqual(_resolve_transcode_codecs(probe), ("copy", "aac"))
+
+    def test_10bit_h264_reencodes_video(self):
+        """High 10（10-bit）瀏覽器播不了，不能 remux"""
+        probe = self._probe({"codec_name": "h264", "pix_fmt": "yuv420p10le"}, {"codec_name": "aac"})
+        self.assertEqual(_resolve_transcode_codecs(probe), ("libx264", "copy"))
+
+    def test_non_h264_source_reencodes(self):
+        probe = self._probe({"codec_name": "vp9", "pix_fmt": "yuv420p"}, {"codec_name": "opus"})
+        self.assertEqual(_resolve_transcode_codecs(probe), ("libx264", "aac"))
+
+    def test_h264_without_audio_copies_video(self):
+        probe = self._probe({"codec_name": "h264", "pix_fmt": "yuv420p"})
+        self.assertEqual(_resolve_transcode_codecs(probe), ("copy", "aac"))
+
+
 class ProcessVideoTaskTests(TestCase):
     """影片處理任務測試"""
 
@@ -1276,6 +1315,55 @@ class ProcessVideoTaskTests(TestCase):
         self.assertIn("轉檔失敗", result)
         self.assertIn("Transcoding failed error message from mock", result)
         self.assertEqual(mock_ffmpeg_module.input.call_count, 1)
+
+    @patch("interactions.tasks.notify_subscribers_of_new_video.delay", MagicMock())
+    @patch("videos.tasks.generate_hls_files", MagicMock())
+    @patch("videos.tasks.os.path.exists", MagicMock(return_value=True))
+    @patch("videos.tasks.os.makedirs", MagicMock())
+    @patch("videos.tasks.open", mock_open())
+    @patch("videos.tasks.ffmpeg")
+    def test_process_video_remuxes_h264_aac_source(self, mock_ffmpeg_module):
+        """來源已是 H.264/AAC 時，轉檔改用 stream copy（remux），不重新編碼"""
+        mock_ffmpeg_module.Error = ffmpeg.Error
+        mock_ffmpeg_module.probe.return_value = TestConstants.H264_AAC_PROBE_RESULT
+        mock_ffmpeg_module.input.return_value.output.return_value.run.return_value = (b"", b"")
+
+        with patch("django.db.models.fields.files.FieldFile.save", autospec=True):
+            process_video(self.video.id)
+
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.processing_status, "completed")
+
+        transcode_kwargs = mock_ffmpeg_module.input.return_value.output.call_args_list[0][1]
+        self.assertEqual(transcode_kwargs["vcodec"], "copy")
+        self.assertEqual(transcode_kwargs["acodec"], "copy")
+
+    @patch("interactions.tasks.notify_subscribers_of_new_video.delay", MagicMock())
+    @patch("videos.tasks.generate_hls_files", MagicMock())
+    @patch("videos.tasks.os.path.exists", MagicMock(return_value=True))
+    @patch("videos.tasks.os.makedirs", MagicMock())
+    @patch("videos.tasks.open", mock_open())
+    @patch("videos.tasks.ffmpeg")
+    def test_process_video_falls_back_to_reencode_when_remux_fails(self, mock_ffmpeg_module):
+        """remux 失敗時自動退回完整重新編碼，處理仍成功"""
+        mock_ffmpeg_module.Error = ffmpeg.Error
+        mock_ffmpeg_module.probe.return_value = TestConstants.H264_AAC_PROBE_RESULT
+        mock_ffmpeg_module.input.return_value.output.return_value.run.side_effect = [
+            ffmpeg.Error("remux", stdout=b"", stderr=b"copy failed"),  # remux 嘗試失敗
+            (b"", b""),  # 退回重新編碼成功
+            (b"", b""),  # 縮圖
+        ]
+
+        with patch("django.db.models.fields.files.FieldFile.save", autospec=True):
+            process_video(self.video.id)
+
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.processing_status, "completed")
+
+        output_calls = mock_ffmpeg_module.input.return_value.output.call_args_list
+        self.assertEqual(output_calls[0][1]["vcodec"], "copy")
+        self.assertEqual(output_calls[1][1]["vcodec"], "libx264")
+        self.assertEqual(output_calls[1][1]["acodec"], "aac")
 
     @patch("videos.tasks.ffmpeg")
     def test_process_video_rejects_unparseable_file(self, mock_ffmpeg_module):

@@ -92,18 +92,42 @@ HLS_RENDITIONS = [
 
 
 def _validate_source_video(input_file_path):
-    """ffprobe 預檢：確認檔案可解析、含影片軌且不超過時長上限。回傳拒絕原因，通過則回傳 None。"""
+    """ffprobe 預檢：確認檔案可解析、含影片軌且不超過時長上限。
+
+    回傳 (拒絕原因, probe 結果)；通過時拒絕原因為 None，probe 結果供後續 codec 判斷重用。
+    """
     try:
         info = ffmpeg.probe(input_file_path)
     except ffmpeg.Error:
-        return "無法解析影片檔案，可能不是有效的影片格式"
+        return "無法解析影片檔案，可能不是有效的影片格式", None
     if not any(s.get("codec_type") == "video" for s in info.get("streams", [])):
-        return "檔案中沒有影片軌"
+        return "檔案中沒有影片軌", info
     duration = float(info.get("format", {}).get("duration", 0))
     max_seconds = settings.VIDEO_UPLOAD_MAX_DURATION_SECONDS
     if duration > max_seconds:
-        return f"影片長度 {int(duration)} 秒超過上限 {max_seconds} 秒"
-    return None
+        return f"影片長度 {int(duration)} 秒超過上限 {max_seconds} 秒", info
+    return None, info
+
+
+def _resolve_transcode_codecs(probe_info):
+    """依來源 codec 決定轉檔策略。
+
+    視訊已是瀏覽器可播的 H.264 8-bit（yuv420p）時直接 stream copy，否則重新編碼；
+    音訊已是 AAC 時直接 copy，否則編成 AAC（無音軌時 aac 為 no-op）。
+    """
+    streams = probe_info.get("streams", [])
+    video = next((s for s in streams if s.get("codec_type") == "video"), {})
+    audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
+    vcodec = "copy" if video.get("codec_name") == "h264" and video.get("pix_fmt") == "yuv420p" else "libx264"
+    acodec = "copy" if audio is not None and audio.get("codec_name") == "aac" else "aac"
+    return vcodec, acodec
+
+
+def _run_ffmpeg_transcode(input_file_path, output_path, vcodec, acodec):
+    """執行單次 ffmpeg 轉檔輸出 MP4（codec 為 copy 時即 remux，只重封裝不重編碼）。"""
+    ffmpeg.input(input_file_path).output(
+        output_path, vcodec=vcodec, acodec=acodec, strict="experimental", movflags="faststart"
+    ).run(capture_stdout=True, capture_stderr=True, overwrite_output=True)
 
 
 def _probe_video_dimensions(input_file_path):
@@ -164,27 +188,39 @@ def _write_master_playlist(hls_output_directory, renditions, source_width, sourc
         f.write("\n".join(lines) + "\n")
 
 
-def transcode_video(video, original_file_path, file_name_without_ext):
-    """轉檔影片為 MP4 格式，回傳輸出檔案路徑。"""
+def transcode_video(video, original_file_path, file_name_without_ext, probe_info):
+    """轉檔影片為 MP4 格式，回傳輸出檔案路徑。
+
+    來源 codec 已相容時以 stream copy（remux）取代完整重新編碼，copy 失敗自動退回重新編碼。
+    """
     processed_file_name = f"{file_name_without_ext}_processed.mp4"
     output_dir = os.path.join(settings.MEDIA_ROOT, "videos", "processed_videos")
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, processed_file_name)
 
-    logger.info("影片 %s (ID: %s) 開始轉檔...", video.title, video.id)
+    vcodec, acodec = _resolve_transcode_codecs(probe_info)
+    logger.info("影片 %s (ID: %s) 開始轉檔 (video=%s, audio=%s)...", video.title, video.id, vcodec, acodec)
     start_time = time.time()
 
     try:
-        ffmpeg.input(original_file_path).output(
-            output_path, vcodec="libx264", acodec="aac", strict="experimental", movflags="faststart"
-        ).run(capture_stdout=True, capture_stderr=True, overwrite_output=True)
-    except Exception as e:
-        if isinstance(e, ffmpeg.Error):
-            error_msg = _get_exception_message(e)
-            logger.error("影片 %s (ID: %s) 轉檔失敗: %s", video.title, video.id, error_msg)
-            video.processing_status = "failed"
-            video.save(update_fields=["processing_status"])
-            raise
+        try:
+            _run_ffmpeg_transcode(original_file_path, output_path, vcodec, acodec)
+        except ffmpeg.Error as e:
+            if (vcodec, acodec) == ("libx264", "aac"):
+                raise
+            # 少數來源（異常 timestamp、非常規封裝）stream copy 會失敗，退回完整重新編碼
+            logger.warning(
+                "影片 %s (ID: %s) stream copy 失敗，退回完整重新編碼: %s",
+                video.title,
+                video.id,
+                _get_exception_message(e),
+            )
+            _run_ffmpeg_transcode(original_file_path, output_path, "libx264", "aac")
+    except ffmpeg.Error as e:
+        error_msg = _get_exception_message(e)
+        logger.error("影片 %s (ID: %s) 轉檔失敗: %s", video.title, video.id, error_msg)
+        video.processing_status = "failed"
+        video.save(update_fields=["processing_status"])
         raise
 
     elapsed = time.time() - start_time
@@ -255,15 +291,15 @@ def process_video(self, video_id):
         file_name_without_ext = os.path.splitext(os.path.basename(original_file_path))[0]
 
         # Step 0: ffprobe 預檢——無效檔案或超長影片直接標記失敗，不進入耗時的轉檔
-        rejection = _validate_source_video(original_file_path)
+        rejection, probe_info = _validate_source_video(original_file_path)
         if rejection:
             video.processing_status = "failed"
             video.save(update_fields=["processing_status"])
             logger.warning("影片 %s (ID: %s) 預檢未通過: %s", video.title, video_id, rejection)
             return f"影片 {video_id} 預檢未通過: {rejection}"
 
-        # Step 1: 轉檔
-        output_path = transcode_video(video, original_file_path, file_name_without_ext)
+        # Step 1: 轉檔（來源 codec 相容時為 remux）
+        output_path = transcode_video(video, original_file_path, file_name_without_ext, probe_info)
 
         # 轉檔結果已存入 storage，原始上傳檔不再被引用，刪除以釋放空間
         if original_file_path != video.video_file.path:
