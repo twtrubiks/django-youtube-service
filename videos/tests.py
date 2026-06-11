@@ -98,6 +98,11 @@ class CategoryModelTests(BaseVideoTestCase):
         self.assertEqual(category.slug, slugify(category_name))
         self.assertEqual(str(category), category_name)
 
+    def test_category_unicode_slugification(self):
+        """測試中文名稱會產生 unicode slug，而非空字串"""
+        category = Category.objects.create(name="生活")
+        self.assertEqual(category.slug, "生活")
+
     def test_category_manual_slug(self):
         """測試手動提供 slug 時，不會被覆蓋"""
         manual_slug = "my-custom-slug"
@@ -516,6 +521,12 @@ class VideoDetailViewTests(TestCase):
         self.assertEqual(response.context["category"], self.category)
         self.assertIn("detail_tag", [tag.name for tag in response.context["tags"]])
 
+    def test_video_detail_view_with_unicode_tag(self):
+        """中文 tag 的 slug 含 unicode，頁面上的 tag 連結 reverse 不應 NoReverseMatch"""
+        self.video.tags.add("生活")
+        response = self.client.get(reverse("videos:video_detail", args=[self.video.id]))
+        self.assertEqual(response.status_code, 200)
+
     def test_video_detail_view_get_non_existing_video(self):
         response = self.client.get(reverse("videos:video_detail", args=[999]))
         self.assertEqual(response.status_code, 404)
@@ -892,6 +903,15 @@ class VideosByCategoryViewTests(TestCase):
         self.assertEqual(len(response.context["videos"]), 0)
         self.assertEqual(response.context["category"], empty_category)
 
+    def test_videos_by_category_unicode_slug(self):
+        """中文分類的 unicode slug 應能匹配路由"""
+        unicode_category = Category.objects.create(name="生活")
+        response = self.client.get(
+            reverse("videos:videos_by_category", kwargs={"category_slug": unicode_category.slug})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["category"], unicode_category)
+
 
 class VideosByTagViewTests(TestCase):
     def setUp(self):
@@ -933,6 +953,13 @@ class VideosByTagViewTests(TestCase):
         self.assertNotIn(self.video2, videos_in_context)
         self.assertNotIn(self.video3, videos_in_context)  # Private video
         self.assertEqual(len(videos_in_context), 1)
+
+    def test_videos_by_tag_unicode_slug(self):
+        """中文 tag 的 unicode slug 應能匹配路由並查到影片"""
+        self.video1.tags.add("生活")
+        response = self.client.get(reverse("videos:videos_by_tag", kwargs={"tag_slug": "生活"}))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self.video1, response.context["videos"])
 
     def test_videos_by_tag_get_common_tag(self):
         response = self.client.get(reverse("videos:videos_by_tag", kwargs={"tag_slug": "commontag"}))

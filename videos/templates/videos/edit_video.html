@@ -107,12 +107,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         function addTag(tag) {
             tag = tag.trim();
-            const englishNumericRegex = /^[a-zA-Z0-9]+$/;
 
             if (!tag) return;
 
-            if (!englishNumericRegex.test(tag)) {
-                showToast('Tags can only contain English letters and numbers.');
+            // 逗號是 tags 欄位的分隔符，混入會弄壞送出的值
+            if (tag.includes(',')) {
+                showToast('Tags cannot contain commas.');
                 return;
             }
 

@@ -15,9 +15,10 @@ urlpatterns = [
     path("search/", views.search_videos, name="search_videos"),
     path("search/suggest/", views.search_suggest, name="search_suggest"),
     path("category/add/", views.add_category, name="add_category"),  # Moved up
-    path("category/<slug:category_slug>/", views.videos_by_category, name="videos_by_category"),
+    # str 而非 slug：taggit 與 Category 的 slug 允許 unicode（如中文），slug converter 只收 ASCII
+    path("category/<str:category_slug>/", views.videos_by_category, name="videos_by_category"),
     path("category/<int:category_id>/delete/", views.delete_category, name="delete_category"),
-    path("tag/<slug:tag_slug>/", views.videos_by_tag, name="videos_by_tag"),
+    path("tag/<str:tag_slug>/", views.videos_by_tag, name="videos_by_tag"),
     path("<int:video_id>/status/", views.video_status, name="video_status"),
     # HLS streaming endpoints
     # segment_name 用 path converter 以支援多畫質子目錄（如 720p/segment_000.ts）
