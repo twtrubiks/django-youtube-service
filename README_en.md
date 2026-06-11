@@ -243,7 +243,7 @@ Key environment variables:
 | `DB_PASSWORD` | `password123` | Database password |
 | `REDIS_HOST` | `localhost` | Redis host address |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Allowed hostnames (comma-separated) |
-| `CELERY_CONCURRENCY` | `2` | Celery Worker concurrency |
+| `CELERY_CONCURRENCY` | `2` | Transcoding worker (`worker-transcode`) concurrency |
 | `WORKER_CPUS` | `2` | CPU limit for the transcoding worker container; recommended host cores minus 2-4 so ffmpeg cannot starve Redis/daphne |
 | `ENABLE_PROMETHEUS` | (depends on DEBUG) | Enable Prometheus metrics collection |
 | `USE_S3` | (empty) | Set to `true` to enable S3/MinIO object storage |
@@ -267,7 +267,8 @@ python manage.py createsuperuser
 # 4. Start Redis (in another terminal)
 
 # 5. Start Celery Worker (in another terminal)
-celery -A youtube_service worker -l info
+# For local dev, a single worker listens on both queues (transcoding tasks are routed to the transcode queue)
+celery -A youtube_service worker -l info -Q celery,transcode
 
 # 6. Start Django development server
 python manage.py runserver

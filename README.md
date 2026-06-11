@@ -246,7 +246,7 @@ cp .env.example .env
 | `DB_PASSWORD` | `password123` | 資料庫密碼 |
 | `REDIS_HOST` | `localhost` | Redis 主機位址 |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | 允許的主機名稱（逗號分隔） |
-| `CELERY_CONCURRENCY` | `2` | Celery Worker 並行處理數 |
+| `CELERY_CONCURRENCY` | `2` | 轉檔 worker（`worker-transcode`）並行處理數 |
 | `WORKER_CPUS` | `2` | 轉檔 worker 容器的 CPU 上限，建議設為主機核心數減 2~4，避免 ffmpeg 餓死 Redis/daphne |
 | `VIDEO_UPLOAD_MAX_SIZE_MB` | `500` | 影片上傳大小上限（MB），需與 nginx `client_max_body_size` 一起調整 |
 | `VIDEO_UPLOAD_MAX_DURATION_SECONDS` | `3600` | 影片時長上限（秒），超過的影片在轉檔前即標記失敗 |
@@ -272,7 +272,8 @@ python manage.py createsuperuser
 # 4. 啟動 Redis (另一個終端)
 
 # 5. 啟動 Celery Worker (另一個終端)
-celery -A youtube_service worker -l info
+# 本機開發用單一 worker 同時聽兩個 queue（轉檔任務路由到 transcode queue）
+celery -A youtube_service worker -l info -Q celery,transcode
 
 # 6. 啟動 Django 開發伺服器
 python manage.py runserver

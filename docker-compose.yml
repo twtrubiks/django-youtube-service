@@ -23,11 +23,22 @@ services:
         timeout: 5s
         retries: 5
 
-    worker:
+    worker-transcode:
       <<: *x-base-app
-      command: celery -A youtube_service worker -l info --concurrency=${CELERY_CONCURRENCY:-2}
+      command: celery -A youtube_service worker -l info -Q transcode --concurrency=${CELERY_CONCURRENCY:-2}
       # 限制轉檔 worker 的 CPU，避免 ffmpeg 吃滿主機導致 Redis/daphne 被餓死（WS 通知逾時斷線）
       cpus: ${WORKER_CPUS:-2}
+      restart: always
+      depends_on:
+        app:
+          condition: service_started
+        redis-django:
+          condition: service_healthy
+
+    worker-default:
+      <<: *x-base-app
+      # 輕量任務（通知推播等）皆為 I/O bound，用 thread pool 省記憶體
+      command: celery -A youtube_service worker -l info -Q celery --pool=threads --concurrency=8
       restart: always
       depends_on:
         app:

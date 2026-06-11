@@ -24,7 +24,10 @@ services:
         - app
       restart: always
 
-    worker:
+    worker-transcode:
+      <<: *x-base-app
+
+    worker-default:
       <<: *x-base-app
 
     app:
