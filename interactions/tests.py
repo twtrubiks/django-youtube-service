@@ -527,8 +527,8 @@ class ToggleSubscriptionViewTests(TestCase):
         group_name, message_content = mock_delay.call_args.args
         self.assertEqual(group_name, f"user_{self.channel_owner.id}_notifications")
         self.assertEqual(message_content["type"], "send_notification")
-        self.assertEqual(message_content["message"]["id"], notification.id)
-        self.assertEqual(message_content["message"]["type"], "new_subscription")
+        # 推播內容與歷史通知 API 同形狀（見 Notification.to_client_dict）
+        self.assertEqual(message_content["notification"], notification.to_client_dict())
 
     @patch("interactions.services.send_channel_notification.delay")
     def test_unsubscribe_does_not_create_notification(self, mock_delay):
@@ -636,8 +636,8 @@ class NotifySubscribersOfNewVideoTaskTests(TestCase):
         mock_layer.group_send.assert_called_once()
         group_name, message_content = mock_layer.group_send.call_args.args
         self.assertEqual(group_name, f"user_{self.subscriber.id}_notifications")
-        self.assertEqual(message_content["message"]["id"], notification.id)
-        self.assertEqual(message_content["message"]["type"], "new_video")
+        # 推播內容與歷史通知 API 同形狀（見 Notification.to_client_dict）
+        self.assertEqual(message_content["notification"], notification.to_client_dict())
 
     @patch("interactions.tasks.get_channel_layer")
     def test_private_video_no_notification(self, mock_get_channel_layer):

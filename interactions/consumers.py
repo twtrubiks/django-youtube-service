@@ -45,7 +45,9 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         pass
 
     async def send_notification(self, event):
-        """接收來自房間群組的訊息並轉發給前端（通知已於來源端持久化，見 services.notify）。"""
-        message = event["message"]
-        client_message_type = message.get("type", "generic_notification")
-        await self.send(text_data=json.dumps({"type": client_message_type, "message": message}))
+        """接收來自房間群組的訊息並轉發給前端（通知已於來源端持久化，見 services.notify）。
+
+        event["notification"] 與歷史通知 API 的單筆形狀一致（Notification.to_client_dict），
+        前端因此共用同一條渲染路徑。
+        """
+        await self.send(text_data=json.dumps({"notification": event["notification"]}))

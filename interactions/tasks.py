@@ -69,7 +69,7 @@ def notify_subscribers_of_new_video(video_id):
             try:
                 async_to_sync(channel_layer.group_send)(
                     f"user_{notification.recipient_id}_notifications",
-                    {"type": "send_notification", "message": {**payload, "id": notification.id}},
+                    {"type": "send_notification", "notification": notification.to_client_dict()},
                 )
             except Exception:
                 logger.exception("推播新影片通知給使用者 %s 失敗", notification.recipient_id)

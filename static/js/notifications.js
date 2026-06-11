@@ -21,31 +21,12 @@ function initializeNotificationWebSocket(userId) {
     };
 
     notificationSocket.onmessage = function(e) {
-        const data = JSON.parse(e.data); // data = {type: 'new_video', message: { actual_payload }}
+        // data.notification 與歷史通知 API 的單筆形狀一致（見 services.notify），
+        // 直接交給 formatNotificationHTML 共用同一條渲染路徑
+        const data = JSON.parse(e.data);
         console.log("Notification received via WebSocket:", data);
 
-        // Construct a notification object similar to historical ones for consistent handling
-        // The consumer now saves to DB and should ideally send back the created notification object,
-        // including its ID. For now, we assume `data.message` is the payload and `data.type` is the notification type.
-        // A true WebSocket notification is always new and unread.
-        const wsNotificationObject = {
-            id: data.message.id || `ws-${Date.now()}`, // Use server-sent ID if available, else temporary
-            message: data.message, // This is the payload object
-            link: data.message.url || (data.message.video_id ? `/videos/${data.message.video_id}/` : '#'), // Construct link
-            is_read: false,
-            timestamp: new Date().toISOString(), // Use current time for WS messages
-            type: data.type // This is the 'new_video', 'new_reply' etc.
-        };
-
-        // If the link needs a comment anchor
-        if (data.message.video_id && data.message.parent_comment_id) {
-            wsNotificationObject.link = `/videos/${data.message.video_id}/#comment-${data.message.parent_comment_id}`;
-        } else if (data.message.video_id && data.message.comment_id) {
-             wsNotificationObject.link = `/videos/${data.message.video_id}/#comment-${data.message.comment_id}`;
-        }
-
-
-        addNotificationToDropdown(wsNotificationObject, true); // Prepend new WS notifications
+        addNotificationToDropdown(data.notification, true); // Prepend new WS notifications
 
         unreadNotificationCount++;
         updateUnreadCountDisplay(); // Update bell icon indicator
@@ -182,17 +163,19 @@ function buildCommentNotificationHTML(actorName, videoTitle, verb, content) {
 
 function formatNotificationHTML(notification) {
     let payload = notification.message;
-    let notificationType = notification.type;
 
     if (typeof payload === 'string') {
         try {
             payload = JSON.parse(payload);
-            if (payload && payload.type && !notificationType) {
-                notificationType = payload.type;
-            }
         } catch (e) {
             // not JSON, use as-is
         }
+    }
+    // 歷史 API 與 WS 推播共用同一資料形狀且皆不帶頂層 type，通知類型一律取自 payload.type
+    // （message 為 JSONField；字串分支只為相容 migration 前的早期純文字通知）
+    let notificationType;
+    if (typeof payload === 'object' && payload !== null) {
+        notificationType = payload.type;
     }
 
     let title = "通知";

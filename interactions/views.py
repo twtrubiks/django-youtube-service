@@ -246,17 +246,7 @@ def toggle_subscription(request, user_id_to_subscribe):
 def get_notifications(request):
     notifications = Notification.objects.filter(recipient=request.user).order_by("-timestamp")[:50]
 
-    data = [
-        {
-            "id": notification.id,
-            "message": notification.message,
-            "link": notification.link,
-            "is_read": notification.is_read,
-            # USE_TZ=True 下 timestamp 必為 aware UTC，isoformat 直接得到 +00:00 結尾
-            "timestamp": notification.timestamp.isoformat(),
-        }
-        for notification in notifications
-    ]
+    data = [notification.to_client_dict() for notification in notifications]
 
     return JsonResponse({"status": "success", "data": {"notifications": data}})
 

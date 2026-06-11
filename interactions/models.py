@@ -104,3 +104,14 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification for {self.recipient.username}: {str(self.message)[:50]}"
+
+    def to_client_dict(self):
+        """歷史通知 API 與 WebSocket 推播共用的序列化形狀，讓前端只有一條渲染路徑。"""
+        return {
+            "id": self.id,
+            "message": self.message,
+            "link": self.link,
+            "is_read": self.is_read,
+            # USE_TZ=True 下 timestamp 必為 aware UTC，isoformat 直接得到 +00:00 結尾
+            "timestamp": self.timestamp.isoformat(),
+        }
