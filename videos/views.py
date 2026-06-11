@@ -22,7 +22,7 @@ from interactions.models import Comment, LikeDislike, Subscription
 from interactions.views import COMMENTS_PER_PAGE
 
 # 本地應用 imports
-from .forms import CategoryForm, VideoUploadForm
+from .forms import CategoryForm, VideoEditForm, VideoUploadForm
 from .models import Category, Video
 from .tasks import process_video
 
@@ -210,7 +210,7 @@ def edit_video(request, video_id):
         return redirect(reverse("videos:video_detail", args=[video.id]))
 
     if request.method == "POST":
-        form = VideoUploadForm(request.POST, request.FILES, instance=video)
+        form = VideoEditForm(request.POST, request.FILES, instance=video)
         if form.is_valid():
             form.save()
             messages.success(request, "Video updated successfully.")
@@ -218,7 +218,7 @@ def edit_video(request, video_id):
         else:
             messages.error(request, "Error updating video. Please check the form.")
     else:
-        form = VideoUploadForm(instance=video)
+        form = VideoEditForm(instance=video)
 
     return render(request, "videos/edit_video.html", {"form": form, "video": video})
 

@@ -25,7 +25,7 @@ from django.utils.text import slugify
 
 from interactions.models import Comment, LikeDislike
 
-from .forms import CategoryForm, VideoUploadForm
+from .forms import CategoryForm, VideoEditForm, VideoUploadForm
 from .models import Category, Video
 from .tasks import _resolve_transcode_codecs, generate_hls_files, process_video
 
@@ -352,7 +352,8 @@ class VideoUploadFormTests(BaseVideoTestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("video_file", form.errors)
 
-    def test_video_upload_form_for_editing_video_file_not_required(self):
+    def test_video_edit_form_has_no_video_file_field(self):
+        """編輯表單不含 video_file 欄位（影片檔上傳後不可更換）"""
         existing_video = Video.objects.create(
             title="Existing Video",
             uploader=self.user,
@@ -363,11 +364,9 @@ class VideoUploadFormTests(BaseVideoTestCase):
             "description": "Updated description.",
             "visibility": "private",
         }
-        form = VideoUploadForm(data=form_data, instance=existing_video)
-        if not form.is_valid():
-            print("VideoUploadForm errors (editing):", form.errors.as_json())
+        form = VideoEditForm(data=form_data, instance=existing_video)
         self.assertTrue(form.is_valid(), msg=f"Form errors (editing): {form.errors.as_json()}")
-        self.assertFalse(form.fields["video_file"].required)
+        self.assertNotIn("video_file", form.fields)
         self.assertFalse(form.fields["thumbnail"].required)
 
     def test_video_upload_form_rejects_oversized_file(self):
@@ -685,7 +684,7 @@ class EditVideoViewTests(TestCase):
         response = self.client.get(reverse("videos:edit_video", args=[self.video.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "videos/edit_video.html")
-        self.assertIsInstance(response.context["form"], VideoUploadForm)
+        self.assertIsInstance(response.context["form"], VideoEditForm)
         self.assertEqual(response.context["video"], self.video)
         self.assertEqual(response.context["form"].instance, self.video)
 
@@ -743,6 +742,23 @@ class EditVideoViewTests(TestCase):
         self.video.refresh_from_db()
         expected_title = os.path.splitext(os.path.basename(self.video.video_file.name))[0]
         self.assertEqual(self.video.title, expected_title)
+
+    @patch("videos.views.process_video.delay")
+    def test_edit_video_view_post_video_file_is_ignored(self, mock_process_video_delay):
+        """編輯時就算 POST 新的 video_file 也不會生效，亦不會重新觸發影片處理"""
+        original_file_name = self.video.video_file.name
+        form_data = {
+            "title": "Title After Edit",
+            "visibility": "public",
+            "video_file": SimpleUploadedFile("replacement.mp4", b"new content", "video/mp4"),
+        }
+        response = self.client.post(reverse("videos:edit_video", args=[self.video.id]), data=form_data)
+
+        self.assertEqual(response.status_code, 302)
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.video_file.name, original_file_name)
+        self.assertEqual(self.video.title, "Title After Edit")
+        mock_process_video_delay.assert_not_called()
 
     def test_edit_video_view_not_uploader(self):
         self.client.logout()

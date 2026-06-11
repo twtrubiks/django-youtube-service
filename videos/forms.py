@@ -25,10 +25,6 @@ class VideoUploadForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["title"].required = False
-        # For editing, video_file and thumbnail are not required
-        if self.instance and self.instance.pk:
-            self.fields["video_file"].required = False
-            self.fields["thumbnail"].required = False
 
     def clean_video_file(self):
         video_file = self.cleaned_data.get("video_file")
@@ -54,4 +50,19 @@ class VideoUploadForm(forms.ModelForm):
         if not title and video_file:
             filename = getattr(video_file, "name", "")
             cleaned_data["title"] = os.path.splitext(os.path.basename(filename))[0][:255]
+        return cleaned_data
+
+
+class VideoEditForm(VideoUploadForm):
+    """編輯用表單：影片檔上傳後不可更換（與 YouTube 行為一致），只能更新 metadata 與縮圖。"""
+
+    class Meta(VideoUploadForm.Meta):
+        fields = ["title", "description", "thumbnail", "visibility", "category", "tags"]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # 標題清空時退回既有影片檔的檔名（去副檔名）
+        if not cleaned_data.get("title") and self.instance.video_file:
+            filename = os.path.basename(self.instance.video_file.name)
+            cleaned_data["title"] = os.path.splitext(filename)[0][:255]
         return cleaned_data
