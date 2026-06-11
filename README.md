@@ -40,7 +40,7 @@ graph TB
     end
 
     subgraph "存儲層"
-        L[本地存儲 / S3 / MinIO] --> M[影片文件]
+        L[本地存儲] --> M[影片文件]
         L --> N[HLS 片段]
         L --> O[縮圖圖片]
     end
@@ -135,7 +135,7 @@ graph TB
 
 * **主資料庫**: PostgreSQL 18 (生產環境) / SQLite (開發)
 * **緩存系統**: Redis (消息佇列 + 頻道層 + Session cache)
-* **文件存儲**: 本地存儲，或透過 django-storages 切換至 S3/MinIO 物件儲存
+* **文件存儲**: 本地存儲（私有媒體經 nginx auth_request 權限驗證）
 
 ### 前端技術
 
@@ -185,7 +185,6 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 可選依賴可在 Dockerfile 或執行時額外安裝：
 
-* `requirements-s3.txt` — S3/MinIO 物件儲存支援
 * `requirements-otel.txt` — OpenTelemetry 分散式追蹤
 
 #### 服務組件說明
@@ -251,7 +250,6 @@ cp .env.example .env
 | `VIDEO_UPLOAD_MAX_SIZE_MB` | `500` | 影片上傳大小上限（MB），需與 nginx `client_max_body_size` 一起調整 |
 | `VIDEO_UPLOAD_MAX_DURATION_SECONDS` | `3600` | 影片時長上限（秒），超過的影片在轉檔前即標記失敗 |
 | `ENABLE_PROMETHEUS` | (依 DEBUG) | 是否啟用 Prometheus 指標收集 |
-| `USE_S3` | (空) | 設為 `true` 啟用 S3/MinIO 物件儲存 |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | (空) | OpenTelemetry collector endpoint，留空則停用 |
 
 Docker 部署時會透過 `docker-compose.yml` 自動設定連線相關變數，無需手動配置。
@@ -371,7 +369,6 @@ youtube_service/
 ├── docker-compose.prod.yml  # 生產環境編排（Nginx + 多實例）
 ├── requirements.txt         # 生產依賴
 ├── requirements-dev.txt     # 開發依賴（ruff、coverage、pre-commit）
-├── requirements-s3.txt      # S3/MinIO 可選依賴
 ├── requirements-otel.txt    # OpenTelemetry 可選依賴
 └── pyproject.toml           # Ruff 設定
 ```

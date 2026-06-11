@@ -40,7 +40,7 @@ graph TB
     end
 
     subgraph "Storage Layer"
-        L[Local Storage / S3 / MinIO] --> M[Video Files]
+        L[Local Storage] --> M[Video Files]
         L --> N[HLS Segments]
         L --> O[Thumbnail Images]
     end
@@ -135,7 +135,7 @@ Comments
 
 * **Main Database**: PostgreSQL 18 (Production) / SQLite (Development)
 * **Caching System**: Redis (Message Queue + Channel Layer + Session cache)
-* **File Storage**: Local storage, or switch to S3/MinIO object storage via django-storages
+* **File Storage**: Local storage (private media protected by nginx auth_request)
 
 ### Frontend Technology
 
@@ -185,7 +185,6 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 Optional dependencies can be installed by adding the corresponding requirements files in the Dockerfile or at runtime:
 
-* `requirements-s3.txt` — S3/MinIO object storage support
 * `requirements-otel.txt` — OpenTelemetry distributed tracing
 
 #### Service Components Description
@@ -246,7 +245,6 @@ Key environment variables:
 | `CELERY_CONCURRENCY` | `2` | Transcoding worker (`worker-transcode`) concurrency |
 | `WORKER_CPUS` | `2` | CPU limit for the transcoding worker container; recommended host cores minus 2-4 so ffmpeg cannot starve Redis/daphne |
 | `ENABLE_PROMETHEUS` | (depends on DEBUG) | Enable Prometheus metrics collection |
-| `USE_S3` | (empty) | Set to `true` to enable S3/MinIO object storage |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | (empty) | OpenTelemetry collector endpoint; leave empty to disable |
 
 When deploying with Docker, connection-related variables are automatically configured via `docker-compose.yml` — no manual setup needed.
@@ -366,7 +364,6 @@ youtube_service/
 ├── docker-compose.prod.yml  # Production orchestration (Nginx + multi-instance)
 ├── requirements.txt         # Production dependencies
 ├── requirements-dev.txt     # Development dependencies (ruff, coverage, pre-commit)
-├── requirements-s3.txt      # S3/MinIO optional dependencies
 ├── requirements-otel.txt    # OpenTelemetry optional dependencies
 └── pyproject.toml           # Ruff configuration
 ```
