@@ -229,6 +229,12 @@ else:
 
 MEDIA_ROOT = BASE_DIR / "media"
 
+# 影片上傳限制。大小上限需與 nginx 的 client_max_body_size 及
+# upload_video.html 的前端檢查保持一致，調整時三處一起改。
+VIDEO_UPLOAD_MAX_SIZE_MB = int(os.environ.get("VIDEO_UPLOAD_MAX_SIZE_MB", "500"))
+VIDEO_UPLOAD_MAX_DURATION_SECONDS = int(os.environ.get("VIDEO_UPLOAD_MAX_DURATION_SECONDS", "3600"))
+VIDEO_UPLOAD_ALLOWED_EXTENSIONS = ["mp4", "webm", "ogg", "mov", "avi", "mkv"]
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
 

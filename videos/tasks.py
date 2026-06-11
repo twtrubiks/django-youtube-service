@@ -91,6 +91,21 @@ HLS_RENDITIONS = [
 ]
 
 
+def _validate_source_video(input_file_path):
+    """ffprobe 預檢：確認檔案可解析、含影片軌且不超過時長上限。回傳拒絕原因，通過則回傳 None。"""
+    try:
+        info = ffmpeg.probe(input_file_path)
+    except ffmpeg.Error:
+        return "無法解析影片檔案，可能不是有效的影片格式"
+    if not any(s.get("codec_type") == "video" for s in info.get("streams", [])):
+        return "檔案中沒有影片軌"
+    duration = float(info.get("format", {}).get("duration", 0))
+    max_seconds = settings.VIDEO_UPLOAD_MAX_DURATION_SECONDS
+    if duration > max_seconds:
+        return f"影片長度 {int(duration)} 秒超過上限 {max_seconds} 秒"
+    return None
+
+
 def _probe_video_dimensions(input_file_path):
     """用 ffprobe 取得影片的寬與高。"""
     info = ffmpeg.probe(input_file_path)
@@ -238,6 +253,14 @@ def process_video(self, video_id):
 
         original_file_path = video.video_file.path
         file_name_without_ext = os.path.splitext(os.path.basename(original_file_path))[0]
+
+        # Step 0: ffprobe 預檢——無效檔案或超長影片直接標記失敗，不進入耗時的轉檔
+        rejection = _validate_source_video(original_file_path)
+        if rejection:
+            video.processing_status = "failed"
+            video.save(update_fields=["processing_status"])
+            logger.warning("影片 %s (ID: %s) 預檢未通過: %s", video.title, video_id, rejection)
+            return f"影片 {video_id} 預檢未通過: {rejection}"
 
         # Step 1: 轉檔
         output_path = transcode_video(video, original_file_path, file_name_without_ext)

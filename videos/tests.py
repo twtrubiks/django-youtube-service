@@ -19,7 +19,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.utils import IntegrityError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
@@ -36,6 +36,11 @@ class TestConstants:
 
     DEFAULT_PASSWORD = "password123"
     VIDEO_CONTENT = b"dummy video content"
+    # process_video 的 ffprobe 預檢需要 probe 回傳有效結果才能進入轉檔流程
+    VALID_PROBE_RESULT = {
+        "streams": [{"codec_type": "video", "width": 1280, "height": 720}],
+        "format": {"duration": "120.0"},
+    }
     VALID_PNG_CONTENT = (
         b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
         b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDAT\x08\xd7c`\x00"
@@ -339,6 +344,23 @@ class VideoUploadFormTests(BaseVideoTestCase):
         self.assertTrue(form.is_valid(), msg=f"Form errors (editing): {form.errors.as_json()}")
         self.assertFalse(form.fields["video_file"].required)
         self.assertFalse(form.fields["thumbnail"].required)
+
+    def test_video_upload_form_rejects_oversized_file(self):
+        """超過大小上限的影片檔應被拒絕"""
+        with override_settings(VIDEO_UPLOAD_MAX_SIZE_MB=1):
+            big_file = SimpleUploadedFile("big.mp4", b"x" * (1024 * 1024 + 1), content_type="video/mp4")
+            form = VideoUploadForm(data={"title": "Big", "visibility": "public"}, files={"video_file": big_file})
+            self.assertFalse(form.is_valid())
+            self.assertIn("video_file", form.errors)
+            self.assertIn("too large", form.errors["video_file"][0])
+
+    def test_video_upload_form_rejects_disallowed_extension(self):
+        """不在允許清單內的副檔名應被拒絕"""
+        bad_file = SimpleUploadedFile("notavideo.exe", b"content", content_type="video/mp4")
+        form = VideoUploadForm(data={"title": "Bad", "visibility": "public"}, files={"video_file": bad_file})
+        self.assertFalse(form.is_valid())
+        self.assertIn("video_file", form.errors)
+        self.assertIn("Unsupported file format", form.errors["video_file"][0])
 
     def test_video_upload_form_invalid_category(self):
         form_data = {
@@ -1108,6 +1130,7 @@ class ProcessVideoTaskTests(TestCase):
     ):
         """測試影片處理成功的情況"""
         mock_ffmpeg_module.Error = ffmpeg.Error
+        mock_ffmpeg_module.probe.return_value = TestConstants.VALID_PROBE_RESULT
         mock_os_path_exists.return_value = True
         mock_generate_hls.return_value = True
 
@@ -1170,6 +1193,7 @@ class ProcessVideoTaskTests(TestCase):
     def test_process_video_transcoding_fails(self, mock_ffmpeg_module):
         """測試影片轉檔失敗的情況"""
         mock_ffmpeg_module.Error = ffmpeg.Error
+        mock_ffmpeg_module.probe.return_value = TestConstants.VALID_PROBE_RESULT
         mock_ffmpeg_module.input.return_value.output.return_value.run.side_effect = ffmpeg.Error(
             "ffmpeg_run", stdout=b"", stderr=b"Transcoding failed error message from mock"
         )
@@ -1181,6 +1205,52 @@ class ProcessVideoTaskTests(TestCase):
         self.assertIn("轉檔失敗", result)
         self.assertIn("Transcoding failed error message from mock", result)
         self.assertEqual(mock_ffmpeg_module.input.call_count, 1)
+
+    @patch("videos.tasks.ffmpeg")
+    def test_process_video_rejects_unparseable_file(self, mock_ffmpeg_module):
+        """ffprobe 解不開的檔案在預檢階段直接標記失敗，不進入轉檔"""
+        mock_ffmpeg_module.Error = ffmpeg.Error
+        mock_ffmpeg_module.probe.side_effect = ffmpeg.Error("ffprobe", stdout=b"", stderr=b"Invalid data found")
+
+        result = process_video(self.video.id)
+
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.processing_status, "failed")
+        self.assertIn("無法解析影片檔案", result)
+        mock_ffmpeg_module.input.assert_not_called()
+
+    @patch("videos.tasks.ffmpeg")
+    def test_process_video_rejects_file_without_video_stream(self, mock_ffmpeg_module):
+        """沒有影片軌的檔案（如純音訊）在預檢階段直接標記失敗"""
+        mock_ffmpeg_module.Error = ffmpeg.Error
+        mock_ffmpeg_module.probe.return_value = {
+            "streams": [{"codec_type": "audio"}],
+            "format": {"duration": "60.0"},
+        }
+
+        result = process_video(self.video.id)
+
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.processing_status, "failed")
+        self.assertIn("沒有影片軌", result)
+        mock_ffmpeg_module.input.assert_not_called()
+
+    @patch("videos.tasks.ffmpeg")
+    def test_process_video_rejects_too_long_video(self, mock_ffmpeg_module):
+        """超過時長上限的影片在預檢階段直接標記失敗"""
+        mock_ffmpeg_module.Error = ffmpeg.Error
+        mock_ffmpeg_module.probe.return_value = {
+            "streams": [{"codec_type": "video", "width": 1280, "height": 720}],
+            "format": {"duration": "61.0"},
+        }
+
+        with override_settings(VIDEO_UPLOAD_MAX_DURATION_SECONDS=60):
+            result = process_video(self.video.id)
+
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.processing_status, "failed")
+        self.assertIn("超過上限", result)
+        mock_ffmpeg_module.input.assert_not_called()
 
     @patch("videos.tasks.generate_hls_files")
     @patch("videos.tasks.os.path.exists")
@@ -1199,6 +1269,7 @@ class ProcessVideoTaskTests(TestCase):
         mock_os_path_exists.return_value = True
         mock_generate_hls.return_value = True
         mock_ffmpeg_module.Error = ffmpeg.Error
+        mock_ffmpeg_module.probe.return_value = TestConstants.VALID_PROBE_RESULT
 
         decoded_stderr_message = "Thumbnail generation failed specific message"
         thumbnail_error_instance = TestSpecificFFmpegError(
@@ -1242,6 +1313,7 @@ class ProcessVideoTaskTests(TestCase):
     ):
         """轉檔成功並存入 storage 後，原始上傳檔應被刪除"""
         mock_ffmpeg_module.Error = ffmpeg.Error
+        mock_ffmpeg_module.probe.return_value = TestConstants.VALID_PROBE_RESULT
         mock_ffmpeg_module.input.return_value.output.return_value.run.return_value = (b"", b"")
 
         original_path = self.video.video_file.path
@@ -1266,7 +1338,10 @@ class ProcessVideoTaskTests(TestCase):
         self.video.processing_status = "pending"
         self.video.save()
 
-        with patch("videos.tasks.ffmpeg.input", side_effect=Exception("Unexpected generic error during processing")):
+        with (
+            patch("videos.tasks.ffmpeg.probe", return_value=TestConstants.VALID_PROBE_RESULT),
+            patch("videos.tasks.ffmpeg.input", side_effect=Exception("Unexpected generic error during processing")),
+        ):
             result = process_video(self.video.id)
 
         self.assertIn(f"處理影片 {self.video.id} 時發生未預期錯誤", result)
