@@ -126,8 +126,13 @@ DATABASES = {
         "PASSWORD": os.environ.get("DB_PASSWORD", "password123"),
         "HOST": os.environ.get("DB_HOST", "localhost"),
         "PORT": int(os.environ.get("DB_PORT", "5432")),
-        "CONN_MAX_AGE": 600,
-        "CONN_HEALTH_CHECKS": True,
+        # ASGI（daphne）下不可用持久連線（CONN_MAX_AGE），改用 psycopg 3 原生連線池；
+        # 兩者互斥，pool 啟用時 CONN_MAX_AGE 必須維持預設 0。
+        # max_size=8 對齊 worker-default 的 --pool=threads --concurrency=8，
+        # pool 為 per-process：app、各 worker child 各自一池，總量遠低於 PG max_connections
+        "OPTIONS": {
+            "pool": {"min_size": 2, "max_size": 8, "timeout": 10},
+        },
     }
 }
 
