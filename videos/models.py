@@ -1,6 +1,8 @@
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
+from django.utils.encoding import filepath_to_uri
 from django.utils.text import slugify
 from taggit.managers import TaggableManager
 
@@ -66,6 +68,13 @@ class Video(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def hls_url(self):
+        """master.m3u8 的對外 URL。檔案由 nginx 直接服務，授權由 auth_request 子請求處理（見 nginx/nginx.conf）。"""
+        if not self.hls_path:
+            return None
+        return settings.MEDIA_URL + filepath_to_uri(self.hls_path)
 
     def likes_count(self):
         return self.likes_dislikes.filter(type="like").count()

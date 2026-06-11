@@ -221,7 +221,7 @@
         <script>
         document.addEventListener('DOMContentLoaded', function() {
             const video = document.getElementById('video-player');
-            const hlsUrl = "{% url 'videos:hls_playlist' video.id %}";
+            const hlsUrl = "{{ video.hls_url }}";
 
             if (Hls.isSupported()) {
                 const hls = new Hls({

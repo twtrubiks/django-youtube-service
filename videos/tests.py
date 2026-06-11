@@ -10,7 +10,6 @@ Videos App 測試模組
 """
 
 import os
-import shutil
 from unittest.mock import MagicMock, mock_open, patch
 
 import ffmpeg
@@ -1613,188 +1612,182 @@ class HLSFunctionalityTests(TestCase):
         self.assertEqual(mock_delay.call_args[0][0], self.video.id)
         mock_message.assert_called_once()
 
-    def test_hls_playlist_url_pattern(self):
+    def test_media_auth_url_pattern(self):
         """
-        測試 HLS 播放清單 URL 模式
-        """
-        from django.urls import reverse
-
-        url = reverse("videos:hls_playlist", args=[self.video.id])
-        expected_url = f"/videos/{self.video.id}/hls/playlist.m3u8"
-        self.assertEqual(url, expected_url)
-
-    def test_hls_segment_url_pattern(self):
-        """
-        測試 HLS 片段 URL 模式
+        測試 nginx auth_request 子請求端點的 URL 模式（需與 nginx.conf 的 proxy_pass 一致）
         """
         from django.urls import reverse
 
-        segment_name = "segment_001.ts"
-        url = reverse("videos:hls_segment", args=[self.video.id, segment_name])
-        expected_url = f"/videos/{self.video.id}/hls/{segment_name}"
-        self.assertEqual(url, expected_url)
+        self.assertEqual(reverse("videos:media_auth"), "/videos/media-auth/")
 
-    def test_hls_segment_url_pattern_supports_nested_path(self):
+    def test_video_hls_url_property(self):
         """
-        測試 HLS 片段 URL 支援多畫質子目錄路徑
+        測試 hls_url property 組出 nginx 直接服務的媒體 URL
         """
-        from django.urls import reverse
+        self.assertIsNone(self.video.hls_url)
+        self.video.hls_path = "hls/1_test_video/master.m3u8"
+        self.assertEqual(self.video.hls_url, "/media/hls/1_test_video/master.m3u8")
 
-        url = reverse("videos:hls_segment", args=[self.video.id, "720p/segment_001.ts"])
-        self.assertEqual(url, f"/videos/{self.video.id}/hls/720p/segment_001.ts")
+    def test_video_hls_url_property_encodes_unicode_path(self):
+        """
+        測試 hls_url 對中文路徑做百分比編碼
+        """
+        self.video.hls_path = "hls/1_中文影片/master.m3u8"
+        self.assertEqual(self.video.hls_url, "/media/hls/1_%E4%B8%AD%E6%96%87%E5%BD%B1%E7%89%87/master.m3u8")
 
 
-class HLSViewTests(TestCase):
+class MediaAuthViewTests(TestCase):
     """
-    測試 HLS 相關的視圖
+    測試 nginx auth_request 授權端點（media_auth）。
+
+    授權判斷只依據 X-Original-URI（HLS 目錄名的 <id>_ 前綴、mp4 的 video_file 反查），
+    不讀磁碟，因此測試不需建立實體 HLS 檔案。
     """
 
     def setUp(self):
-        self.user = User.objects.create_user(username="hls_view_user", password="password123")
-        self.other_user = User.objects.create_user(username="other_user", password="password123")
+        self.user = User.objects.create_user(username="media_auth_user", password="password123")
+        self.other_user = User.objects.create_user(username="media_auth_other", password="password123")
 
-        # 建立真實的多畫質 HLS 目錄結構（master.m3u8 + 720p 子目錄 + 舊版扁平 segment）
-        self.hls_dir_name = "hlsview_test_dir"
-        self.hls_dir = os.path.join(settings.MEDIA_ROOT, "hls", self.hls_dir_name)
-        os.makedirs(os.path.join(self.hls_dir, "720p"), exist_ok=True)
-        with open(os.path.join(self.hls_dir, "master.m3u8"), "w", encoding="utf-8") as f:
-            f.write("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720\n720p/playlist.m3u8\n")
-        with open(os.path.join(self.hls_dir, "720p", "playlist.m3u8"), "w", encoding="utf-8") as f:
-            f.write("#EXTM3U\n#EXTINF:10.0,\nsegment_000.ts\n")
-        self.segment_data = b"fake ts segment data"
-        with open(os.path.join(self.hls_dir, "720p", "segment_000.ts"), "wb") as f:
-            f.write(self.segment_data)
-        with open(os.path.join(self.hls_dir, "segment_000.ts"), "wb") as f:
-            f.write(self.segment_data)
-
-        # 創建有 HLS 路徑的影片
-        self.video_with_hls = Video.objects.create(
-            title="Video with HLS",
+        self.public_video = Video.objects.create(
+            title="Public Video",
             uploader=self.user,
-            video_file=SimpleUploadedFile("hls_video.mp4", b"video content", content_type="video/mp4"),
-            visibility="public",
-            hls_path=f"hls/{self.hls_dir_name}/master.m3u8",
-        )
-
-        # 創建沒有 HLS 路徑的影片
-        self.video_without_hls = Video.objects.create(
-            title="Video without HLS",
-            uploader=self.user,
-            video_file=SimpleUploadedFile("no_hls_video.mp4", b"video content", content_type="video/mp4"),
+            video_file=SimpleUploadedFile("auth_public.mp4", b"video content", content_type="video/mp4"),
             visibility="public",
         )
-
-        # 創建私人影片
         self.private_video = Video.objects.create(
             title="Private Video",
             uploader=self.user,
-            video_file=SimpleUploadedFile("private_video.mp4", b"video content", content_type="video/mp4"),
+            video_file=SimpleUploadedFile("auth_private.mp4", b"video content", content_type="video/mp4"),
             visibility="private",
-            hls_path=f"hls/{self.hls_dir_name}/master.m3u8",
         )
+        self.auth_url = reverse("videos:media_auth")
 
-    def tearDown(self):
-        shutil.rmtree(self.hls_dir, ignore_errors=True)
+    def _auth(self, original_uri):
+        return self.client.get(self.auth_url, HTTP_X_ORIGINAL_URI=original_uri)
 
-    def test_hls_playlist_view_success(self):
-        """
-        測試成功獲取 HLS master 播放清單
-        """
-        response = self.client.get(reverse("videos:hls_playlist", args=[self.video_with_hls.id]))
+    def test_public_hls_allowed_for_anonymous(self):
+        """測試匿名使用者可存取公開影片的 HLS 片段"""
+        response = self._auth(f"/media/hls/{self.public_video.id}_dir/720p/segment_000.ts")
+        self.assertEqual(response.status_code, 204)
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Content-Type"], "application/vnd.apple.mpegurl")
-        self.assertEqual(response["Cache-Control"], "no-cache")
-        content = b"".join(response.streaming_content).decode()
-        self.assertIn("#EXTM3U", content)
-        self.assertIn("720p/playlist.m3u8", content)
+    def test_private_hls_blocked_for_anonymous(self):
+        """測試匿名使用者無法存取私人影片的 HLS"""
+        response = self._auth(f"/media/hls/{self.private_video.id}_dir/master.m3u8")
+        self.assertEqual(response.status_code, 403)
 
-    def test_hls_playlist_view_video_not_found(self):
-        """
-        測試影片不存在時的 404 錯誤
-        """
-        response = self.client.get(reverse("videos:hls_playlist", args=[999]))
-        self.assertEqual(response.status_code, 404)
+    def test_private_hls_allowed_for_owner(self):
+        """測試影片擁有者可存取私人影片的 HLS"""
+        self.client.login(username="media_auth_user", password="password123")
+        response = self._auth(f"/media/hls/{self.private_video.id}_dir/master.m3u8")
+        self.assertEqual(response.status_code, 204)
 
-    def test_hls_playlist_view_no_hls_path(self):
-        """
-        測試影片沒有 HLS 路徑時的 404 錯誤
-        """
-        response = self.client.get(reverse("videos:hls_playlist", args=[self.video_without_hls.id]))
-        self.assertEqual(response.status_code, 404)
+    def test_private_hls_blocked_for_other_user(self):
+        """測試非擁有者無法存取私人影片的 HLS"""
+        self.client.login(username="media_auth_other", password="password123")
+        response = self._auth(f"/media/hls/{self.private_video.id}_dir/master.m3u8")
+        self.assertEqual(response.status_code, 403)
 
-    def test_hls_playlist_view_private_video_unauthorized(self):
-        """
-        測試未授權訪問私人影片的 HLS 播放清單
-        """
-        response = self.client.get(reverse("videos:hls_playlist", args=[self.private_video.id]))
-        self.assertEqual(response.status_code, 404)
+    def test_hls_unknown_video_blocked(self):
+        """測試不存在的影片 id 被拒絕"""
+        response = self._auth("/media/hls/999999_dir/master.m3u8")
+        self.assertEqual(response.status_code, 403)
 
-    def test_hls_playlist_view_private_video_authorized(self):
-        """
-        測試影片擁有者訪問私人影片的 HLS 播放清單
-        """
-        self.client.login(username="hls_view_user", password="password123")
-        response = self.client.get(reverse("videos:hls_playlist", args=[self.private_video.id]))
-        self.assertEqual(response.status_code, 200)
+    def test_hls_malformed_dir_blocked(self):
+        """測試目錄名沒有 <id>_ 前綴時被拒絕"""
+        response = self._auth("/media/hls/no-id-prefix/master.m3u8")
+        self.assertEqual(response.status_code, 403)
 
-    def test_hls_sub_playlist_view_success(self):
-        """
-        測試多畫質子播放清單以 m3u8 content type 服務
-        """
-        response = self.client.get(reverse("videos:hls_segment", args=[self.video_with_hls.id, "720p/playlist.m3u8"]))
+    def test_public_mp4_allowed_for_anonymous(self):
+        """測試匿名使用者可存取公開影片的 mp4"""
+        response = self._auth(f"/media/{self.public_video.video_file.name}")
+        self.assertEqual(response.status_code, 204)
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Content-Type"], "application/vnd.apple.mpegurl")
-        self.assertEqual(response["Cache-Control"], "no-cache")
-        self.assertIn("segment_000.ts", b"".join(response.streaming_content).decode())
+    def test_private_mp4_blocked_for_anonymous(self):
+        """測試匿名使用者無法存取私人影片的 mp4"""
+        response = self._auth(f"/media/{self.private_video.video_file.name}")
+        self.assertEqual(response.status_code, 403)
 
-    def test_hls_segment_view_success(self):
-        """
-        測試成功獲取多畫質子目錄中的 HLS 片段
-        """
-        response = self.client.get(reverse("videos:hls_segment", args=[self.video_with_hls.id, "720p/segment_000.ts"]))
+    def test_private_mp4_allowed_for_owner(self):
+        """測試影片擁有者可存取私人影片的 mp4"""
+        self.client.login(username="media_auth_user", password="password123")
+        response = self._auth(f"/media/{self.private_video.video_file.name}")
+        self.assertEqual(response.status_code, 204)
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Content-Type"], "video/mp2t")
-        self.assertEqual(response["Cache-Control"], "public, max-age=3600")
-        self.assertEqual(b"".join(response.streaming_content), self.segment_data)
+    def test_unreferenced_media_file_blocked(self):
+        """測試未被任何 Video 引用的檔案（如轉檔前的原始上傳檔）被拒絕"""
+        response = self._auth("/media/videos/not_a_video_record.mp4")
+        self.assertEqual(response.status_code, 403)
 
-    def test_hls_segment_view_flat_layout_still_served(self):
-        """測試舊版單一畫質扁平結構的 segment 仍可存取（向下相容）"""
-        response = self.client.get(reverse("videos:hls_segment", args=[self.video_with_hls.id, "segment_000.ts"]))
+    def test_non_protected_path_blocked(self):
+        """測試 hls/videos 以外的路徑一律拒絕（nginx 不會對縮圖發 auth 子請求）"""
+        response = self._auth("/media/thumbnails/some_thumb.jpg")
+        self.assertEqual(response.status_code, 403)
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Content-Type"], "video/mp2t")
-        self.assertEqual(b"".join(response.streaming_content), self.segment_data)
+    def test_missing_header_blocked(self):
+        """測試缺少 X-Original-URI header 時被拒絕"""
+        response = self.client.get(self.auth_url)
+        self.assertEqual(response.status_code, 403)
 
-    def test_hls_segment_view_missing_file_returns_404(self):
-        """測試請求不存在的片段回傳 404"""
-        response = self.client.get(reverse("videos:hls_segment", args=[self.video_with_hls.id, "720p/segment_999.ts"]))
-        self.assertEqual(response.status_code, 404)
+    def test_unicode_mp4_path_allowed(self):
+        """測試中文檔名路徑可正確還原並授權（nginx 傳 raw bytes、ASGI 以 latin-1 解碼）"""
+        video = Video.objects.create(
+            title="Unicode Video",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("中文影片_auth.mp4", b"video content", content_type="video/mp4"),
+            visibility="public",
+        )
+        mojibake_uri = f"/media/{video.video_file.name}".encode().decode("iso-8859-1")
+        response = self._auth(mojibake_uri)
+        self.assertEqual(response.status_code, 204)
 
-    def test_hls_segment_path_traversal_blocked(self):
-        """測試路徑穿越攻擊被 realpath 圍欄攔截（路由現在允許含 / 的路徑）"""
-        # ../../videos/hls_video.mp4 實際存在，但位於 HLS 目錄之外，必須被擋下
-        response = self.client.get(f"/videos/{self.video_with_hls.id}/hls/../../videos/hls_video.mp4")
-        self.assertEqual(response.status_code, 404)
+    def test_post_method_not_allowed(self):
+        """測試授權端點只接受安全方法（GET/HEAD）"""
+        response = self.client.post(self.auth_url, HTTP_X_ORIGINAL_URI="/media/hls/1_dir/master.m3u8")
+        self.assertEqual(response.status_code, 405)
 
-    def test_hls_playlist_anonymous_private_video_blocked(self):
-        """測試匿名使用者無法存取私人影片 HLS"""
-        self.client.logout()
-        response = self.client.get(reverse("videos:hls_playlist", args=[self.private_video.id]))
-        self.assertEqual(response.status_code, 404)
 
-    def test_hls_segment_other_user_private_video_blocked(self):
-        """測試非擁有者無法存取私人影片 HLS 片段"""
-        self.client.login(username="other_user", password="password123")
-        response = self.client.get(reverse("videos:hls_segment", args=[self.private_video.id, "segment_001.ts"]))
-        self.assertEqual(response.status_code, 404)
+class VideoStatusViewTests(TestCase):
+    """
+    測試影片狀態 API 的回應與權限
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="status_user", password="password123")
+        self.other_user = User.objects.create_user(username="status_other", password="password123")
+        self.public_video = Video.objects.create(
+            title="Public Video",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("status_public.mp4", b"video content", content_type="video/mp4"),
+            visibility="public",
+        )
+        self.private_video = Video.objects.create(
+            title="Private Video",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("status_private.mp4", b"video content", content_type="video/mp4"),
+            visibility="private",
+        )
 
     def test_video_status_endpoint(self):
         """測試影片狀態 API"""
-        response = self.client.get(reverse("videos:video_status", args=[self.video_with_hls.id]))
+        response = self.client.get(reverse("videos:video_status", args=[self.public_video.id]))
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("status", data)
         self.assertIn("hls_status", data)
+
+    def test_video_status_private_blocked_for_anonymous(self):
+        """測試匿名使用者無法查詢私人影片狀態"""
+        response = self.client.get(reverse("videos:video_status", args=[self.private_video.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_video_status_private_blocked_for_other_user(self):
+        """測試非擁有者無法查詢私人影片狀態"""
+        self.client.login(username="status_other", password="password123")
+        response = self.client.get(reverse("videos:video_status", args=[self.private_video.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_video_status_private_allowed_for_owner(self):
+        """測試影片擁有者可查詢私人影片狀態"""
+        self.client.login(username="status_user", password="password123")
+        response = self.client.get(reverse("videos:video_status", args=[self.private_video.id]))
+        self.assertEqual(response.status_code, 200)

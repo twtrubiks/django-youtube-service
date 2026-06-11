@@ -1,18 +1,17 @@
 # 標準庫 imports
 import logging
-import os
 
 # Django imports
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.core.paginator import Paginator
 from django.db.models import Count, F, Q
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_safe
 
 # 第三方庫 imports
 from django_ratelimit.decorators import ratelimit
@@ -339,48 +338,47 @@ def delete_video(request, video_id):
 def video_status(request, video_id):
     """回傳影片處理狀態 JSON。"""
     video = get_object_or_404(Video, pk=video_id)
+    # 與 video_detail 一致：private 影片的存在與處理狀態只有上傳者可見
+    if video.visibility == "private" and (not request.user.is_authenticated or video.uploader != request.user):
+        raise Http404("影片不存在或無權限訪問")
     return JsonResponse({"status": video.processing_status or "pending", "hls_status": video.hls_status})
 
 
-def _get_hls_video(request, video_id):
-    """取得影片並驗證 HLS 存取權限，回傳 video 物件。"""
-    video = get_object_or_404(Video, pk=video_id)
-    if video.visibility == "private" and (not request.user.is_authenticated or video.uploader != request.user):
-        raise Http404("影片不存在或無權限訪問")
-    if not video.hls_path:
-        raise Http404("HLS 文件不存在")
-    return video
+def _decode_uri_header(raw):
+    """還原 header 中的 UTF-8 路徑。
 
-
-def _hls_file_response(file_path, content_type, cache_control):
-    """以串流方式回應 HLS 文件，避免將整個檔案載入記憶體。"""
+    nginx 將 $uri 以原始 bytes 傳遞，ASGI/WSGI 層以 latin-1 解碼成 str，
+    路徑含中文（上傳檔名）時需先還原 bytes 再以 UTF-8 解碼。
+    """
     try:
-        response = FileResponse(open(file_path, "rb"), content_type=content_type)
-    except OSError as e:
-        raise Http404(f"讀取 HLS 文件失敗: {str(e)}") from e
-    response["Cache-Control"] = cache_control
-    return response
+        return raw.encode("iso-8859-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return raw
 
 
-def serve_hls_playlist(request, video_id):
-    """服務 HLS 主播放清單文件（多畫質為 master.m3u8）"""
-    video = _get_hls_video(request, video_id)
-    playlist_path = os.path.join(settings.MEDIA_ROOT, video.hls_path)
-    return _hls_file_response(playlist_path, "application/vnd.apple.mpegurl", "no-cache")
+@require_safe
+def media_auth(request):
+    """nginx auth_request 子請求端點：判斷受保護媒體檔（HLS、mp4）的存取權限。
 
+    nginx 以 X-Original-URI header 帶入正規化後的請求路徑（見 nginx/nginx.conf），
+    本 view 只回授權結果（204 允許 / 403 拒絕），檔案傳輸由 nginx 處理；
+    授權結果由 nginx 以（session, 影片）為鍵快取，避免每個 HLS 片段都打進 Django。
+    """
+    uri = _decode_uri_header(request.headers.get("X-Original-URI", ""))
 
-def serve_hls_segment(request, video_id, segment_name):
-    """服務 HLS 片段與各畫質子播放清單（如 720p/playlist.m3u8、720p/segment_000.ts）"""
-    video = _get_hls_video(request, video_id)
+    video = None
+    if uri.startswith("/media/hls/"):
+        # HLS 目錄名以 <video_id>_ 開頭（見 tasks.generate_hls_files）
+        video_id = uri[len("/media/hls/") :].split("/", 1)[0].split("_", 1)[0]
+        if video_id.isdigit():
+            video = Video.objects.filter(pk=video_id).only("visibility", "uploader_id").first()
+    elif uri.startswith("/media/videos/"):
+        # mp4 的 URL 不含影片 id，以 video_file 欄位值反查；
+        # 磁碟上未被任何 Video 引用的檔案（如轉檔前的原始上傳檔）一律拒絕
+        video = Video.objects.filter(video_file=uri[len("/media/") :]).only("visibility", "uploader_id").first()
 
-    # 構建文件路徑（segment_name 可能含子目錄）
-    hls_dir = os.path.realpath(os.path.dirname(os.path.join(settings.MEDIA_ROOT, video.hls_path)))
-    segment_path = os.path.realpath(os.path.join(hls_dir, segment_name))
-
-    # 安全檢查：確保請求的文件在正確的目錄中（防止路徑穿越）
-    if not segment_path.startswith(hls_dir + os.sep):
-        raise Http404("無效的片段請求")
-
-    if segment_name.endswith(".m3u8"):
-        return _hls_file_response(segment_path, "application/vnd.apple.mpegurl", "no-cache")
-    return _hls_file_response(segment_path, "video/mp2t", "public, max-age=3600")
+    if video is None:
+        return HttpResponseForbidden()
+    if video.visibility == "private" and video.uploader_id != request.user.id:
+        return HttpResponseForbidden()
+    return HttpResponse(status=204)

@@ -20,8 +20,6 @@ urlpatterns = [
     path("category/<int:category_id>/delete/", views.delete_category, name="delete_category"),
     path("tag/<str:tag_slug>/", views.videos_by_tag, name="videos_by_tag"),
     path("<int:video_id>/status/", views.video_status, name="video_status"),
-    # HLS streaming endpoints
-    # segment_name 用 path converter 以支援多畫質子目錄（如 720p/segment_000.ts）
-    path("<int:video_id>/hls/playlist.m3u8", views.serve_hls_playlist, name="hls_playlist"),
-    path("<int:video_id>/hls/<path:segment_name>", views.serve_hls_segment, name="hls_segment"),
+    # nginx auth_request 子請求端點：受保護媒體（HLS、mp4）的授權判斷，見 nginx/nginx.conf
+    path("media-auth/", views.media_auth, name="media_auth"),
 ]
