@@ -363,7 +363,7 @@ youtube_service/
 │   └── thumbnails/          # Thumbnail files
 ├── templates/               # Global templates
 ├── docker-compose.yml       # Development orchestration
-├── docker-compose.prod.yml  # Production orchestration (Nginx + multi-instance)
+├── docker-compose.prod.yml  # Production orchestration (Nginx reverse proxy)
 ├── requirements.txt         # Production dependencies
 ├── requirements-dev.txt     # Development dependencies (ruff, coverage, pre-commit)
 ├── requirements-otel.txt    # OpenTelemetry optional dependencies

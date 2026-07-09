@@ -1,6 +1,7 @@
-# Production overrides: Nginx reverse proxy, no source mount, scalable app
+# Production overrides: Nginx reverse proxy, no source mount
 # Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-# Scale: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --scale app=3
+# HTTP 由單一 daphne 承載，適合 demo 流量；高並行需另行擴容（nginx 對 upstream 的
+# DNS 只在啟動時解析一次，docker compose --scale 增加副本不會被分流）。
 
 x-base-app-setting: &x-base-app
   image: youtube-service-app

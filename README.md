@@ -368,7 +368,7 @@ youtube_service/
 │   └── thumbnails/          # 縮圖文件
 ├── templates/               # 全局模板
 ├── docker-compose.yml       # 開發環境編排
-├── docker-compose.prod.yml  # 生產環境編排（Nginx + 多實例）
+├── docker-compose.prod.yml  # 生產環境編排（Nginx 反向代理）
 ├── requirements.txt         # 生產依賴
 ├── requirements-dev.txt     # 開發依賴（ruff、coverage、pre-commit）
 ├── requirements-otel.txt    # OpenTelemetry 可選依賴
