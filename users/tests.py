@@ -1,7 +1,11 @@
+# Standard library imports
+from unittest.mock import patch
+
 # Django imports
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.db import IntegrityError, transaction
+from django.test import Client, TestCase
 from django.urls import reverse
 
 from interactions.models import Subscription
@@ -148,6 +152,34 @@ class UserRegistrationFormTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("email", form.errors)
 
+    def test_registration_form_duplicate_email(self):
+        """已註冊的 email 不可重複註冊（不分大小寫）。"""
+        User.objects.create_user(username="existinguser", email="taken@example.com", password=TEST_PASSWORD)
+        form_data = {
+            "username": "newuser",
+            "email": "TAKEN@example.com",
+            "password": "SecureP@ss2026!",
+            "password2": "SecureP@ss2026!",
+        }
+        form = UserRegistrationForm(data=form_data)
+        self.assertFalse(form.is_valid())
+        self.assertIn("email", form.errors)
+        self.assertEqual(form.errors["email"][0], "A user with that email already exists.")
+
+
+class EmailUniqueIndexTests(TestCase):
+    def test_db_index_blocks_duplicate_email_case_insensitive(self):
+        """LOWER(email) 部分唯一索引：表單層 clean_email 競態的最後防線。"""
+        User.objects.create_user(username="user1", email="dup@example.com", password=TEST_PASSWORD)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            User.objects.create_user(username="user2", email="DUP@example.com", password=TEST_PASSWORD)
+
+    def test_db_index_allows_multiple_empty_emails(self):
+        """空 email（createsuperuser 等路徑）不受唯一索引限制。"""
+        User.objects.create_user(username="noemail1", password=TEST_PASSWORD)
+        User.objects.create_user(username="noemail2", password=TEST_PASSWORD)
+        self.assertEqual(User.objects.filter(email="").count(), 2)
+
 
 class UserLoginFormTests(TestCase):
     def test_login_form_valid_data(self):
@@ -206,6 +238,24 @@ class UserEditFormTests(TestCase):
         form = UserEditForm(data=form_data, instance=self.user)
         self.assertFalse(form.is_valid())
         self.assertIn("email", form.errors)
+
+    def test_user_edit_form_duplicate_email(self):
+        """不可把 email 改成別人已使用的（不分大小寫）。"""
+        User.objects.create_user(
+            username="otheruser",
+            email="taken@example.com",
+            password="password123",
+        )
+        form_data = {"first_name": "Edited", "last_name": "Name", "email": "Taken@Example.com"}
+        form = UserEditForm(data=form_data, instance=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("email", form.errors)
+
+    def test_user_edit_form_keep_own_email(self):
+        """保留自己原本的 email 不應被自己擋下。"""
+        form_data = {"first_name": "Edited", "last_name": "Name", "email": "edituser@example.com"}
+        form = UserEditForm(data=form_data, instance=self.user)
+        self.assertTrue(form.is_valid())
 
     def test_user_edit_form_partial_update(self):
         form_data = {"first_name": "JustFirstName"}
@@ -283,6 +333,25 @@ class UserRegisterViewTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("username", form.errors)
 
+    def test_register_view_duplicate_email_race_returns_form_error(self):
+        """
+        模擬 clean_email 通過後、寫入前才出現重複 email 的併發競態：
+        DB 唯一索引擋下，view 回填表單錯誤而非 500。
+        """
+        User.objects.create_user(username="firstuser", email="race@example.com", password=TEST_PASSWORD)
+        user_data = {
+            "username": "seconduser",
+            "email": "race@example.com",
+            "password": "complexpassword123",
+            "password2": "complexpassword123",
+        }
+        # 讓 clean_email 放行，重現「檢查通過但 DB 已有人」的競態時序
+        with patch.object(UserRegistrationForm, "clean_email", lambda self: self.cleaned_data["email"]):
+            response = self.client.post(reverse("users:register"), data=user_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("email", response.context["form"].errors)
+        self.assertFalse(User.objects.filter(username="seconduser").exists())
+
 
 class UserLoginViewTests(TestCase):
     def setUp(self):
@@ -326,7 +395,7 @@ class UserLoginViewTests(TestCase):
 
     def test_login_view_post_inactive_user(self):
         """
-        測試嘗試登入已停用帳戶。
+        測試嘗試登入已停用帳戶：訊息與帳密錯誤相同，不洩漏帳號狀態（防帳號枚舉）。
         """
         self.test_user.is_active = False
         self.test_user.save()
@@ -336,7 +405,30 @@ class UserLoginViewTests(TestCase):
         self.assertFalse(response.wsgi_request.user.is_authenticated)
         messages = list(response.wsgi_request._messages)
         self.assertEqual(len(messages), 1)
-        self.assertEqual(str(messages[0]), "Disabled account")
+        self.assertEqual(str(messages[0]), "Invalid login")
+
+    def test_login_sets_csrf_cookie_for_later_ajax_posts(self):
+        """
+        登入回應本身會重設 csrftoken cookie（login() 內的 rotate_token），
+        之後即使只逛無表單頁面，通知「標記已讀」等 AJAX POST 也拿得到 token。
+        """
+        client = Client(enforce_csrf_checks=True)
+        client.get(reverse("users:login"))  # 登入頁渲染 {% csrf_token %}，取得初始 cookie
+        login_data = {
+            "username": "testloginuser",
+            "password": "testpassword123",
+            "csrfmiddlewaretoken": client.cookies["csrftoken"].value,
+        }
+        response = client.post(reverse("users:login"), data=login_data)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("csrftoken", response.cookies)
+
+        client.get(reverse("videos:home"))  # 無表單頁面，不會再送 csrf cookie
+        response = client.post(
+            reverse("interactions:mark_all_notifications_as_read"),
+            HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
+        )
+        self.assertEqual(response.status_code, 200)
 
 
 class UserLogoutViewTests(TestCase):
@@ -440,6 +532,26 @@ class EditProfileViewTests(TestCase):
         messages = list(response.wsgi_request._messages)
         self.assertEqual(len(messages), 1)
         self.assertEqual(str(messages[0]), "Error updating your profile")
+
+    def test_edit_profile_duplicate_email_race_returns_form_error(self):
+        """
+        模擬 clean_email 通過後、寫入前 email 才被別人用掉的併發競態：
+        DB 唯一索引擋下，view 回填表單錯誤而非 500。
+        """
+        User.objects.create_user(username="otheruser", email="race@example.com", password="password123")
+        new_data = {
+            "first_name": "UpdatedFirst",
+            "last_name": "UpdatedLast",
+            "email": "race@example.com",
+            "channel_description": "Updated Description",
+        }
+        # 讓 clean_email 放行，重現「檢查通過但 DB 已有人」的競態時序
+        with patch.object(UserEditForm, "clean_email", lambda self: self.cleaned_data["email"]):
+            response = self.client.post(reverse("users:edit_profile"), data=new_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("email", response.context["user_form"].errors)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "original@example.com")
 
     def test_edit_profile_view_delete_banner_image(self):
         """
@@ -605,6 +717,27 @@ class UserChannelViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.context["is_subscribed"])
         self.assertEqual(response.context["profile_owner"], self.channel_owner)
+
+    def test_user_channel_view_pagination(self):
+        """
+        測試頻道頁分頁：與其他列表頁一致，每頁 12 部影片。
+        """
+        for i in range(13):
+            Video.objects.create(
+                uploader=self.channel_owner,
+                title=f"Paginated Video {i}",
+                video_file=SimpleUploadedFile(f"paginated_{i}.mp4", b"content"),
+                visibility="public",
+            )
+
+        response = self.client.get(reverse("users:channel", kwargs={"username": "channelowner"}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["user_videos"]), 12)
+        self.assertEqual(response.context["page_obj"].paginator.count, 13)
+
+        response = self.client.get(reverse("users:channel", kwargs={"username": "channelowner"}), {"page": 2})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["user_videos"]), 1)
 
     def test_user_channel_view_displays_videos(self):
         """

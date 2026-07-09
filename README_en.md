@@ -118,6 +118,8 @@ Comments
   * User authentication and authorization
   * Password strength validation on registration, rejecting short or common passwords
   * CSRF protection and security middleware
+  * Login failure message does not distinguish unknown/disabled accounts from wrong passwords (prevents account enumeration)
+  * Email uniqueness: form-level checks on registration and profile editing, plus a case-insensitive DB unique index to guard against race conditions
   * Production security headers: HSTS, SSL redirect, Secure Cookies
   * API rate limiting: IP-based limits on login/registration to prevent brute force; per-user limits on interactions to prevent abuse
   * Container runs as non-root user (UID=1000), following Docker security best practices

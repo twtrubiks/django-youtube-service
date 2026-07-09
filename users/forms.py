@@ -24,6 +24,14 @@ class UserRegistrationForm(forms.ModelForm):
         validate_password(cd["password2"], self.instance)
         return cd["password2"]
 
+    def clean_email(self):
+        # auth.User 的 email 沒有模型層唯一約束，在表單層擋下重複註冊；
+        # 併發註冊的競態由 DB 唯一索引（migration 0004）擋下
+        email = self.cleaned_data["email"]
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError("A user with that email already exists.")
+        return email
+
 
 class UserLoginForm(forms.Form):
     username = forms.CharField()
@@ -40,3 +48,10 @@ class UserEditForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ("first_name", "last_name", "email")
+
+    def clean_email(self):
+        # 同 UserRegistrationForm.clean_email，但編輯時 email 可留空、且要排除自己
+        email = self.cleaned_data["email"]
+        if email and User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("A user with that email already exists.")
+        return email

@@ -1,7 +1,8 @@
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
+from django.core.paginator import Paginator
+from django.db import IntegrityError, transaction
 from django.shortcuts import redirect, render
 from django_ratelimit.decorators import ratelimit
 
@@ -19,10 +20,17 @@ def register_view(request):
         if form.is_valid():
             new_user = form.save(commit=False)
             new_user.set_password(form.cleaned_data["password"])
-            new_user.save()
-            # UserProfile is created by signal
-            messages.success(request, "Registration successful. Please log in.")
-            return redirect("users:login")
+            try:
+                with transaction.atomic():
+                    new_user.save()
+            except IntegrityError:
+                # clean_email 通過後、寫入前的併發註冊：被 DB 唯一索引擋下，
+                # 回填表單錯誤而非 500
+                form.add_error("email", "A user with that email already exists.")
+            else:
+                # UserProfile is created by signal
+                messages.success(request, "Registration successful. Please log in.")
+                return redirect("users:login")
     else:
         form = UserRegistrationForm()
     return render(request, "users/register.html", {"form": form})
@@ -42,20 +50,8 @@ def login_view(request):
                 messages.success(request, "Authenticated successfully")
                 return redirect("users:channel", username=user.username)
             else:
-                # Authenticate failed
-                try:
-                    # 檢查用戶是否存在但未啟用
-                    user_exists = User.objects.get(username=cd["username"])
-                    if not user_exists.is_active:
-                        messages.error(request, "Disabled account")
-                    else:
-                        # 這種情況理論上不應該發生，因為如果 user_exists.is_active 為 True
-                        # 且密碼正確，authenticate 應該成功。
-                        # 如果密碼錯誤，則 authenticate 返回 None 是正常的。
-                        messages.error(request, "Invalid login")
-                except User.DoesNotExist:
-                    # 用戶名不存在
-                    messages.error(request, "Invalid login")
+                # 帳號不存在、密碼錯誤、帳號停用一律回同一訊息，避免帳號枚舉
+                messages.error(request, "Invalid login")
     else:
         form = UserLoginForm()
     return render(request, "users/login.html", {"form": form})
@@ -85,10 +81,17 @@ def edit_profile_view(request):
             # For now, let's assume if they delete, they might also be updating other fields.
 
         if user_form.is_valid() and profile_form.is_valid():
-            user_form.save()
-            profile_form.save()
-            messages.success(request, "Profile updated successfully")
-            return redirect("users:channel", username=request.user.username)
+            try:
+                with transaction.atomic():
+                    user_form.save()
+                    profile_form.save()
+            except IntegrityError:
+                # clean_email 通過後、寫入前把 email 改成別人剛用掉的：被 DB 唯一索引擋下
+                user_form.add_error("email", "A user with that email already exists.")
+                messages.error(request, "Error updating your profile")
+            else:
+                messages.success(request, "Profile updated successfully")
+                return redirect("users:channel", username=request.user.username)
         else:
             messages.error(request, "Error updating your profile")
     else:
@@ -115,12 +118,16 @@ def user_channel_view(request, username):
     if request.user.is_authenticated and request.user != profile_owner:
         is_subscribed = Subscription.objects.filter(subscriber=request.user, subscribed_to=profile_owner).exists()
 
+    # 與其他列表頁一致的分頁（首頁/搜尋/分類/標籤皆為每頁 12 部）
+    page_obj = Paginator(user_videos, 12).get_page(request.GET.get("page"))
+
     return render(
         request,
         "users/channel.html",
         {
             "profile_owner": profile_owner,
-            "user_videos": user_videos,  # Pass empty list for now
+            "user_videos": page_obj,
+            "page_obj": page_obj,
             "profile": profile_owner_profile,
             "is_subscribed": is_subscribed,
         },

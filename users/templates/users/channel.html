@@ -23,7 +23,7 @@
     <div class="channel-meta">
       <h1 class="channel-name">{{ profile_owner.username }}</h1>
       <p class="channel-stats">
-        <span id="subscriber-count">{{ profile.subscribers_count }}</span> subscribers &bull; {{ user_videos.count }} videos
+        <span id="subscriber-count">{{ profile.subscribers_count }}</span> subscribers &bull; {{ page_obj.paginator.count }} videos
       </p>
       {% if profile.channel_description %}
         <p class="channel-description">{{ profile.channel_description|truncatewords:30 }}</p>
@@ -52,6 +52,7 @@
           {% include "videos/_video_card.html" with video=video show_uploader=False %}
       {% endfor %}
   </div>
+  {% include "videos/_pagination.html" %}
   {% else %}
     <p class="empty-state">{{ profile_owner.username }} has not uploaded any videos yet.</p>
   {% endif %}
