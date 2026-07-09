@@ -11,6 +11,7 @@ from celery.exceptions import MaxRetriesExceededError
 # Django imports
 from django.conf import settings
 from django.core.files import File
+from django.db import InterfaceError, OperationalError
 
 # 本地應用 imports
 from .models import Video
@@ -312,8 +313,17 @@ def process_video(self, video_id):
         except Exception:
             logger.exception("設定影片 %s 失敗狀態時發生錯誤", video_id)
         return f"影片 {video_id} 轉檔失敗: {error_msg}"
-    except OSError as e:
-        raise self.retry(exc=e) from e
+    except (OperationalError, InterfaceError, OSError) as e:
+        # 暫時性失敗（DB 連線抖動、磁碟/IO 錯誤）重試而非直接標 failed
+        try:
+            raise self.retry(exc=e) from e
+        except MaxRetriesExceededError:
+            logger.error("影片 %s 重試已達上限，標記為 failed", video_id)
+            try:
+                Video.objects.filter(id=video_id).update(processing_status="failed")
+            except Exception:
+                logger.exception("設定影片 %s 失敗狀態時發生錯誤", video_id)
+            return f"處理影片 {video_id} 重試多次仍失敗。詳見伺服器日誌。"
     except Exception as e:
         error_msg = _get_exception_message(e)
         logger.exception("處理影片 %s 時發生未預期錯誤: %s", video_id, error_msg)

@@ -158,6 +158,32 @@ class ProcessVideoTaskTests(TestCase):
         self.assertIn("Transcoding failed error message from mock", result)
         self.assertEqual(mock_ffmpeg_module.input.call_count, 1)
 
+    def test_process_video_retries_on_db_error(self):
+        """DB 暫時性錯誤（連線抖動）應觸發重試，而非直接標記 failed"""
+        from django.db import OperationalError
+
+        with (
+            patch("videos.tasks.Video.objects.get", side_effect=OperationalError("connection dropped")),
+            patch.object(process_video, "retry", side_effect=Retry("retrying")) as mock_retry,
+        ):
+            with self.assertRaises(Retry):
+                process_video(self.video.id)
+
+            mock_retry.assert_called_once()
+
+    def test_process_video_marks_failed_when_retries_exhausted(self):
+        """暫時性錯誤重試耗盡後，processing_status 應標記為 failed"""
+        from django.db import OperationalError
+
+        with (
+            patch("videos.tasks.Video.objects.get", side_effect=OperationalError("connection dropped")),
+            patch.object(process_video, "retry", side_effect=MaxRetriesExceededError()),
+        ):
+            process_video(self.video.id)
+
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.processing_status, "failed")
+
     @patch("interactions.tasks.notify_subscribers_of_new_video.delay", MagicMock())
     @patch("videos.tasks.generate_hls_files", MagicMock())
     @patch("videos.tasks.os.path.exists", MagicMock(return_value=True))
