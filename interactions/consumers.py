@@ -14,17 +14,16 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         """處理 WebSocket 連線。"""
         user = self.scope.get("user")
-        user_id = self.scope["url_route"]["kwargs"]["user_id"]
 
-        if not user or not user.is_authenticated or user.id != int(user_id):
+        if not user or not user.is_authenticated:
             await self.close()
             return
 
-        self.room_group_name = f"user_{user_id}_notifications"
+        self.room_group_name = f"user_{user.id}_notifications"
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
-        logger.info("User %s connected to notifications.", user_id)
+        logger.info("User %s connected to notifications.", user.id)
 
     async def disconnect(self, close_code):
         """處理 WebSocket 斷線。"""

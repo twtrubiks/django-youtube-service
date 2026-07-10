@@ -11,7 +11,8 @@ function initializeNotificationWebSocket(userId) {
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsPath = `${protocol}//${window.location.host}/ws/notifications/${userId}/`;
+    // 身分由 session 決定，URL 不帶 user_id；userId 僅作為「未登入不連線」的 guard
+    const wsPath = `${protocol}//${window.location.host}/ws/notifications/`;
 
     const notificationSocket = new WebSocket(wsPath);
 

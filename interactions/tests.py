@@ -2,10 +2,13 @@ import json
 from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from django.contrib.auth.models import User
+from channels.layers import get_channel_layer
+from channels.routing import URLRouter
+from channels.testing import WebsocketCommunicator
+from django.contrib.auth.models import AnonymousUser, User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.utils import IntegrityError
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -13,6 +16,7 @@ from videos.models import Video
 
 from .forms import CommentForm
 from .models import Comment, LikeDislike, Notification, Subscription
+from .routing import websocket_urlpatterns
 from .tasks import notify_subscribers_of_new_video
 
 TEST_PASSWORD = "password123"
@@ -940,3 +944,67 @@ class PrivateVideoInteractionAccessTests(TestCase):
         self.assertTrue(
             LikeDislike.objects.filter(video=self.private_video, user=self.owner, type=LikeDislike.LIKE).exists()
         )
+
+
+@override_settings(CHANNEL_LAYERS={"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}})
+class NotificationConsumerTests(TransactionTestCase):
+    """Test cases for NotificationConsumer WebSocket 授權與推播轉發。
+
+    用 TransactionTestCase 而非 TestCase：atomic 包裹會與 psycopg pool
+    在 async 事件迴圈中互搶連線（Cannot open a new connection in an atomic block）。
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="ws_owner", password=TEST_PASSWORD)
+        self.other_user = User.objects.create_user(username="ws_other", password=TEST_PASSWORD)
+
+    def _communicator(self, user):
+        """以指定使用者身分建立連往通知端點的 communicator（走實際 routing）。"""
+        communicator = WebsocketCommunicator(URLRouter(websocket_urlpatterns), "/ws/notifications/")
+        communicator.scope["user"] = user
+        return communicator
+
+    async def test_anonymous_user_rejected(self):
+        """未登入使用者連線應被拒絕。"""
+        communicator = self._communicator(AnonymousUser())
+        connected, _ = await communicator.connect()
+        self.assertFalse(connected)
+
+    async def test_own_connection_receives_group_notification(self):
+        """連線後收到發送端（services/tasks 的 group_send）格式的推播並轉發給前端。"""
+        communicator = self._communicator(self.user)
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+
+        # 與 Notification.to_client_dict() 同形狀（歷史 API 與推播共用的資料契約）
+        notification = {
+            "id": 1,
+            "message": {"type": "new_video", "video_title": "Test Video"},
+            "link": "/videos/1/",
+            "is_read": False,
+            "timestamp": "2026-06-11T00:00:00+00:00",
+        }
+        await get_channel_layer().group_send(
+            f"user_{self.user.id}_notifications",
+            {"type": "send_notification", "notification": notification},
+        )
+
+        response = await communicator.receive_json_from()
+        self.assertEqual(response, {"notification": notification})
+
+        await communicator.disconnect()
+
+    async def test_connection_isolated_from_other_users_group(self):
+        """連線只會加入自己的群組：推播到他人群組時不應收到任何訊息。"""
+        communicator = self._communicator(self.other_user)
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+
+        await get_channel_layer().group_send(
+            f"user_{self.user.id}_notifications",
+            {"type": "send_notification", "notification": {"id": 1, "message": {"type": "new_video"}}},
+        )
+
+        self.assertTrue(await communicator.receive_nothing())
+
+        await communicator.disconnect()
