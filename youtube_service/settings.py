@@ -272,6 +272,9 @@ CACHES = {
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
+# 測試改用記憶體 cache，避免 ratelimit 計數經共用 Redis 跨測試回合累積
+TEST_RUNNER = "youtube_service.testing.IsolatedCacheTestRunner"
+
 # Celery Configuration Options
 CELERY_BROKER_URL = f"redis://{_REDIS_HOST}:6379/0"
 CELERY_RESULT_BACKEND = f"redis://{_REDIS_HOST}:6379/2"
