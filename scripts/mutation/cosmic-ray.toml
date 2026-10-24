@@ -1,0 +1,43 @@
+# 變異測試設定（cosmic-ray），由 scripts/mutation/run.sh 使用；worker 清單由該腳本產生後附加在檔尾
+[cosmic-ray]
+module-path = [
+    "videos/models.py", "videos/forms.py", "videos/views.py", "videos/tasks.py",
+    "videos/signals.py", "videos/admin.py", "videos/context_processors.py",
+    "videos/management/commands/create_category.py",
+    "interactions/models.py", "interactions/views.py", "interactions/services.py",
+    "interactions/signals.py", "interactions/tasks.py", "interactions/consumers.py",
+    "users/models.py", "users/forms.py", "users/views.py",
+    "youtube_service/urls.py",
+]
+timeout = 90.0
+excluded-modules = []
+test-command = "python manage.py test --keepdb --failfast --parallel 1 --noinput"
+
+[cosmic-ray.filters.operators-filter]
+exclude-operators = [
+    # 二元運算：只保留語意上的對偶（+↔-、*↔/、&↔|，後者對應 Q 物件組合）
+    "core/ReplaceBinaryOperator_Add_(?!Sub$)",
+    "core/ReplaceBinaryOperator_Sub_(?!Add$)",
+    "core/ReplaceBinaryOperator_Mul_(?!Div$)",
+    "core/ReplaceBinaryOperator_Div_(?!Mul$)",
+    "core/ReplaceBinaryOperator_BitOr_(?!BitAnd$)",
+    "core/ReplaceBinaryOperator_BitAnd_(?!BitOr$)",
+    "core/ReplaceBinaryOperator_(FloorDiv|Mod|Pow|RShift|LShift|BitXor)_",
+    # 比較運算：選擇性 ROR（邊界 + 反轉），排除 ==→is 這類常為等價變異的替換
+    "core/ReplaceComparisonOperator_Eq_(?!NotEq$)",
+    "core/ReplaceComparisonOperator_NotEq_(?!Eq$)",
+    "core/ReplaceComparisonOperator_Is_(?!IsNot$)",
+    "core/ReplaceComparisonOperator_IsNot_(?!Is$)",
+    "core/ReplaceComparisonOperator_Lt_(?!(LtE|GtE)$)",
+    "core/ReplaceComparisonOperator_LtE_(?!(Lt|Gt)$)",
+    "core/ReplaceComparisonOperator_Gt_(?!(GtE|LtE)$)",
+    "core/ReplaceComparisonOperator_GtE_(?!(Gt|Lt)$)",
+    # 一元運算：只保留刪除 not / 刪除負號
+    "core/ReplaceUnaryOperator_(?!Delete_(Not|USub)$)",
+    # 隨機變數替換/插入：雜訊大、可重現性差
+    "core/VariableReplacer",
+    "core/VariableInserter",
+]
+
+[cosmic-ray.distributor]
+name = "http"

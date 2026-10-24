@@ -135,3 +135,6 @@ staticfiles/
 
 # Claude Code
 .claude/
+
+# Mutation testing output (scripts/mutation/run.sh)
+.mutation/
