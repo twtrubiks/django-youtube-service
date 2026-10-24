@@ -236,6 +236,52 @@ class VideoFileCleanupTests(TestCase):
         self.assertFalse(os.path.exists(processed_copy))
         self.assertFalse(os.path.exists(hls_dir))
 
+    def test_delete_video_with_thumbnail_does_not_resurrect_row(self):
+        """post_delete 清檔時不可 save instance：FieldFile.delete(save=True) 會把剛刪除的影片重新 INSERT 回資料庫"""
+        video = Video.objects.create(
+            title="Resurrect Check",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("resurrect.mp4", b"video content"),
+            thumbnail=SimpleUploadedFile("resurrect_thumb.jpg", b"thumb content"),
+        )
+        video_id = video.id
+
+        video.delete()
+
+        self.assertFalse(Video.objects.filter(id=video_id).exists())
+
+    def test_delete_video_survives_file_removal_errors(self):
+        """檔案刪除失敗（權限、裝置忙碌）只記 log，不可讓影片刪除本身失敗"""
+        video = Video.objects.create(
+            title="OSError Video",
+            uploader=self.user,
+            video_file=SimpleUploadedFile("oserror_test.mp4", b"video content"),
+            thumbnail=SimpleUploadedFile("oserror_thumb.jpg", b"thumb content"),
+        )
+        video.hls_path = os.path.join("hls", f"{video.id}_oserror_test", "master.m3u8")
+        video.save(update_fields=["hls_path"])
+        processed_dir = os.path.join(settings.MEDIA_ROOT, "videos", "processed_videos")
+        os.makedirs(processed_dir, exist_ok=True)
+        processed_copy = os.path.join(processed_dir, os.path.basename(video.video_file.name))
+        with open(processed_copy, "wb") as f:
+            f.write(b"processed content")
+        # 刪除被模擬為失敗，檔案會留在磁碟上，測試結束後自行清掉
+        for leftover in (video.video_file.path, video.thumbnail.path, processed_copy):
+            self.addCleanup(os.remove, leftover)
+        video_id = video.id
+
+        with (
+            patch("django.core.files.storage.FileSystemStorage.delete", side_effect=OSError("permission denied")),
+            patch("videos.signals.os.remove", side_effect=OSError("permission denied")),
+            patch("videos.signals.shutil.rmtree", side_effect=OSError("device busy")),
+            self.assertLogs("videos.signals", level="ERROR") as logs,
+        ):
+            video.delete()
+
+        self.assertFalse(Video.objects.filter(id=video_id).exists())
+        # 影片檔、縮圖、轉檔暫存副本、HLS 目錄各一筆
+        self.assertEqual(len(logs.records), 4)
+
     def test_delete_video_with_unsafe_hls_path_skips_directory_removal(self):
         """hls_path 指向 media/hls 之外時，不應刪除任何目錄"""
         video = Video.objects.create(

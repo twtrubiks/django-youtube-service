@@ -9,9 +9,10 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from interactions.models import Comment, LikeDislike
+from interactions.models import Comment, LikeDislike, Subscription
 from videos.forms import CategoryForm, VideoEditForm, VideoUploadForm
 from videos.models import Category, Video
+from youtube_service.testing import RateLimitTestMixin
 
 
 class VideoHomeViewTests(TestCase):
@@ -156,6 +157,21 @@ class VideoDetailViewTests(TestCase):
         self.assertIsNone(response.context["user_vote"])
         self.assertEqual(response.context["category"], self.category)
         self.assertIn("detail_tag", [tag.name for tag in response.context["tags"]])
+
+    def test_video_detail_subscription_state(self):
+        """訂閱按鈕狀態：已訂閱者為 True；未訂閱者與上傳者本人為 False"""
+        Subscription.objects.create(subscriber=self.viewer, subscribed_to=self.uploader)
+        url = reverse("videos:video_detail", args=[self.video.id])
+
+        self.client.login(username="detail_viewer", password="password123")
+        self.assertTrue(self.client.get(url).context["is_subscribed"])
+
+        User.objects.create_user(username="detail_stranger", password="password123")
+        self.client.login(username="detail_stranger", password="password123")
+        self.assertFalse(self.client.get(url).context["is_subscribed"])
+
+        self.client.login(username="detail_uploader", password="password123")
+        self.assertFalse(self.client.get(url).context["is_subscribed"])
 
     def test_video_detail_view_with_unicode_tag(self):
         """中文 tag 的 slug 含 unicode，頁面上的 tag 連結 reverse 不應 NoReverseMatch"""
@@ -629,6 +645,12 @@ class AddCategoryViewTests(TestCase):
         self.assertRedirects(response, target_url)
         self.assertTrue(Category.objects.filter(name=category_name).exists())
 
+    def test_add_category_view_post_next_in_form_field_only(self):
+        """next 只在表單 hidden field（POST body）、URL 未帶時也應導回"""
+        target_url = reverse("videos:home")
+        response = self.client.post(reverse("videos:add_category"), data={"name": "Next In Body", "next": target_url})
+        self.assertRedirects(response, target_url)
+
     def test_add_category_view_post_invalid_form(self):
         response = self.client.post(reverse("videos:add_category"), data={"name": ""})  # Empty name
         self.assertEqual(response.status_code, 200)  # Re-render form
@@ -815,6 +837,16 @@ class MediaAuthViewTests(TestCase):
         response = self.client.post(self.auth_url, HTTP_X_ORIGINAL_URI="/media/hls/1_dir/master.m3u8")
         self.assertEqual(response.status_code, 405)
 
+    def test_invalid_utf8_uri_blocked_without_error(self):
+        """無法以 UTF-8 還原的路徑（如惡意構造的 bytes）應直接拒絕，而非讓授權端點 500"""
+        response = self._auth("/media/videos/\xff\xfe.mp4")
+        self.assertEqual(response.status_code, 403)
+
+    def test_non_latin1_uri_blocked_without_error(self):
+        """已是 unicode（無法以 latin-1 編回 bytes）的路徑同樣原樣比對，不可 500"""
+        response = self._auth("/media/videos/不存在.mp4")
+        self.assertEqual(response.status_code, 403)
+
 
 class VideoStatusViewTests(TestCase):
     """
@@ -861,6 +893,12 @@ class VideoStatusViewTests(TestCase):
         self.client.login(username="status_user", password="password123")
         response = self.client.get(reverse("videos:video_status", args=[self.private_video.id]))
         self.assertEqual(response.status_code, 200)
+
+    def test_video_status_defaults_to_pending_when_unset(self):
+        """processing_status 可為 NULL，前端輪詢需拿到 pending 而非 null"""
+        Video.objects.filter(id=self.public_video.id).update(processing_status=None)
+        response = self.client.get(reverse("videos:video_status", args=[self.public_video.id]))
+        self.assertEqual(response.json(), {"status": "pending", "hls_status": "pending"})
 
 
 class SearchVideosViewTests(TestCase):
@@ -953,3 +991,58 @@ class SearchSuggestViewTests(TestCase):
     def test_suggest_min_length(self):
         response = self.client.get(reverse("videos:search_suggest"), {"q": "貓"})
         self.assertEqual(response.json()["suggestions"], [])
+
+
+class ListingPaginationTests(TestCase):
+    """列表頁每頁 12 部（與頻道頁一致）；相關影片最多 8 部、搜尋建議最多 5 筆"""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(username="pagination_user", password="password123")
+        cls.category = Category.objects.create(name="Pagination Category")
+        cls.videos = []
+        for i in range(13):
+            video = Video.objects.create(
+                title=f"Paged Video {i}",
+                uploader=cls.user,
+                video_file=SimpleUploadedFile(f"paged_{i}.mp4", b"content"),
+                category=cls.category,
+                visibility="public",
+                upload_date=timezone.now() - timezone.timedelta(minutes=i),
+            )
+            video.tags.add("paged")
+            cls.videos.append(video)
+
+    def assert_paginated_by_12(self, url, params=None):
+        params = params or {}
+        first_page = self.client.get(url, params).context["page_obj"]
+        second_page = self.client.get(url, {**params, "page": 2}).context["page_obj"]
+        self.assertEqual(len(first_page), 12)
+        self.assertEqual(len(second_page), 1)
+
+    def test_home_paginated_by_12(self):
+        self.assert_paginated_by_12(reverse("videos:home"))
+
+    def test_search_paginated_by_12(self):
+        self.assert_paginated_by_12(reverse("videos:search_videos"), {"query": "Paged"})
+
+    def test_category_paginated_by_12(self):
+        self.assert_paginated_by_12(reverse("videos:videos_by_category", args=[self.category.slug]))
+
+    def test_tag_paginated_by_12(self):
+        self.assert_paginated_by_12(reverse("videos:videos_by_tag", args=["paged"]))
+
+    def test_related_videos_capped_at_8(self):
+        response = self.client.get(reverse("videos:video_detail", args=[self.videos[0].id]))
+        self.assertEqual(len(response.context["related_videos"]), 8)
+
+    def test_search_suggest_capped_at_5(self):
+        response = self.client.get(reverse("videos:search_suggest"), {"q": "Paged"})
+        self.assertEqual(len(response.json()["suggestions"]), 5)
+
+
+class SearchSuggestRateLimitTests(RateLimitTestMixin, TestCase):
+    def test_search_suggest_limited_to_30_per_minute(self):
+        """自動完成依 IP 限制每分鐘 30 次"""
+        url = reverse("videos:search_suggest")
+        self.assert_rate_limited(30, lambda: self.client.get(url, {"q": "cat"}))

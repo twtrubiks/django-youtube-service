@@ -113,6 +113,13 @@ class VideoUploadFormTests(BaseVideoTestCase):
             self.assertIn("video_file", form.errors)
             self.assertIn("too large", form.errors["video_file"][0])
 
+    def test_video_upload_form_accepts_file_exactly_at_size_limit(self):
+        """剛好等於大小上限（1 MB = 1024 * 1024 bytes）的影片檔應被接受"""
+        with override_settings(VIDEO_UPLOAD_MAX_SIZE_MB=1):
+            exact_file = SimpleUploadedFile("exact.mp4", b"x" * (1024 * 1024), content_type="video/mp4")
+            form = VideoUploadForm(data={"title": "Exact", "visibility": "public"}, files={"video_file": exact_file})
+            self.assertTrue(form.is_valid(), msg=form.errors.as_json())
+
     def test_video_upload_form_rejects_disallowed_extension(self):
         """不在允許清單內的副檔名應被拒絕"""
         bad_file = SimpleUploadedFile("notavideo.exe", b"content", content_type="video/mp4")

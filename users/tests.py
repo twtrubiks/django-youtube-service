@@ -10,6 +10,7 @@ from django.urls import reverse
 
 from interactions.models import Subscription
 from videos.models import Video
+from youtube_service.testing import RateLimitTestMixin
 
 # Local imports
 from .forms import UserEditForm, UserLoginForm, UserProfileForm, UserRegistrationForm
@@ -767,3 +768,15 @@ class UserChannelViewTests(TestCase):
         video_titles = [video.title for video in user_videos]
         self.assertIn("Test Video 1", video_titles)
         self.assertIn("Test Video 2", video_titles)
+
+
+class AuthRateLimitTests(RateLimitTestMixin, TestCase):
+    """登入/註冊依 IP 限制請求次數，防暴力破解與大量註冊"""
+
+    def test_register_limited_to_5_per_minute(self):
+        url = reverse("users:register")
+        self.assert_rate_limited(5, lambda: self.client.post(url, data={"username": "spam"}))
+
+    def test_login_limited_to_10_per_minute(self):
+        url = reverse("users:login")
+        self.assert_rate_limited(10, lambda: self.client.post(url, data={"username": "x", "password": "wrong"}))

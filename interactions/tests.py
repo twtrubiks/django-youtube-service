@@ -13,11 +13,12 @@ from django.urls import reverse
 from django.utils import timezone
 
 from videos.models import Video
+from youtube_service.testing import RateLimitTestMixin
 
 from .forms import CommentForm
 from .models import Comment, LikeDislike, Notification, Subscription
 from .routing import websocket_urlpatterns
-from .tasks import notify_subscribers_of_new_video
+from .tasks import notify_subscribers_of_new_video, send_channel_notification
 
 TEST_PASSWORD = "password123"
 TEST_VIDEO_CONTENT = b"video content"
@@ -511,6 +512,18 @@ class ToggleSubscriptionViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
     @patch("interactions.services.send_channel_notification.delay")
+    def test_subscribe_to_user_without_profile(self, mock_delay):
+        """舊資料可能沒有 UserProfile：訂閱照常成功，訂閱數回 0 而非 500"""
+        self.channel_owner_profile.delete()
+
+        response = self._post_toggle_subscription_ajax(self.channel_owner.id)
+
+        self.assertEqual(response.status_code, 200)
+        json_response = json.loads(response.content)
+        self.assertTrue(json_response["subscribed"])
+        self.assertEqual(json_response["subscribers_count"], 0)
+
+    @patch("interactions.services.send_channel_notification.delay")
     def test_subscribe_persists_notification_and_pushes(self, mock_delay):
         """訂閱後應先持久化 Notification，再排程 WebSocket 推播（persist-then-push）。"""
         response = self._post_toggle_subscription_ajax(self.channel_owner.id)
@@ -594,6 +607,23 @@ class SignalHandlerTests(TestCase):
         mock_send.assert_called_once()
 
     @patch("interactions.services.send_channel_notification.delay")
+    def test_long_comment_truncated_in_notification(self, mock_send):
+        """通知只帶留言前 100 字並加上 ...，避免長留言塞滿通知面板"""
+        video = self._create_video("Video for Long Comment")
+        Comment.objects.create(video=video, user=self.commenter, content="a" * 100 + "b")
+
+        payload = Notification.objects.get(recipient=self.uploader).message
+        self.assertEqual(payload["comment_content"], "a" * 100 + "...")
+
+    @patch("interactions.services.send_channel_notification.delay")
+    def test_comment_at_length_limit_not_truncated(self, mock_send):
+        video = self._create_video("Video for 100 Char Comment")
+        Comment.objects.create(video=video, user=self.commenter, content="a" * 100)
+
+        payload = Notification.objects.get(recipient=self.uploader).message
+        self.assertEqual(payload["comment_content"], "a" * 100)
+
+    @patch("interactions.services.send_channel_notification.delay")
     def test_own_comment_does_not_notify(self, mock_send):
         """上傳者在自己影片留言不應通知自己。"""
         video = self._create_video("Video for Own Comment")
@@ -653,6 +683,34 @@ class NotifySubscribersOfNewVideoTaskTests(TestCase):
     def test_missing_video_returns_without_error(self):
         notify_subscribers_of_new_video(987654)
         self.assertEqual(Notification.objects.count(), 0)
+
+    @patch("interactions.tasks.get_channel_layer")
+    def test_push_failure_does_not_stop_remaining_subscribers(self, mock_get_channel_layer):
+        """單一使用者推播失敗（如 Redis 逾時）只記 log，其餘訂閱者照常推播；通知皆已持久化"""
+        second_subscriber = User.objects.create_user(username="fanout_second", password=TEST_PASSWORD)
+        Subscription.objects.create(subscriber=second_subscriber, subscribed_to=self.uploader)
+        mock_layer = MagicMock()
+        mock_layer.group_send = AsyncMock(side_effect=[Exception("redis timeout"), None])
+        mock_get_channel_layer.return_value = mock_layer
+
+        video = self._create_video("Partial Push Video")
+        with self.assertLogs("interactions.tasks", level="ERROR"):
+            notify_subscribers_of_new_video(video.id)
+
+        self.assertEqual(mock_layer.group_send.call_count, 2)
+        self.assertEqual(Notification.objects.filter(recipient__in=[self.subscriber, second_subscriber]).count(), 2)
+
+
+class SendChannelNotificationTaskTests(TestCase):
+    @patch("interactions.tasks.get_channel_layer")
+    def test_channel_layer_failure_is_logged_not_raised(self, mock_get_channel_layer):
+        """推播失敗不重拋：通知已持久化，使用者重整後仍看得到"""
+        mock_layer = MagicMock()
+        mock_layer.group_send = AsyncMock(side_effect=Exception("redis down"))
+        mock_get_channel_layer.return_value = mock_layer
+
+        with self.assertLogs("interactions.tasks", level="ERROR"):
+            send_channel_notification("user_1_notifications", {"type": "send_notification"})
 
 
 class GetCommentsViewTests(TestCase):
@@ -841,6 +899,104 @@ class MarkNotificationViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data["status"], "noop")
 
+    def test_mark_all_with_single_unread(self):
+        response = self.client.post(reverse("interactions:mark_all_notifications_as_read"))
+        data = json.loads(response.content)
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["message"], "1 notifications marked as read.")
+
+    def test_mark_as_read_requires_login(self):
+        self.client.logout()
+        response = self.client.post(reverse("interactions:mark_notification_as_read", args=[self.notification.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("users:login"), response.url)
+        self.notification.refresh_from_db()
+        self.assertFalse(self.notification.is_read)
+
+    def test_mark_all_as_read_requires_login(self):
+        self.client.logout()
+        response = self.client.post(reverse("interactions:mark_all_notifications_as_read"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("users:login"), response.url)
+        self.notification.refresh_from_db()
+        self.assertFalse(self.notification.is_read)
+
+
+class HttpMethodRestrictionTests(TestCase):
+    """改變狀態的端點只接受 POST：CSRF 保護只涵蓋 POST，接受 GET 等於任何頁面放個
+    <img src="..."> 就能讓登入中的使用者在不知情下留言、按讚、訂閱或清除通知。"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="method_user", password=TEST_PASSWORD)
+        self.uploader = User.objects.create_user(username="method_uploader", password=TEST_PASSWORD)
+        self.video = Video.objects.create(
+            title="Method Video",
+            uploader=self.uploader,
+            video_file=SimpleUploadedFile("method.mp4", TEST_VIDEO_CONTENT, TEST_VIDEO_CONTENT_TYPE),
+            visibility="public",
+        )
+        self.notification = Notification.objects.create(recipient=self.user, message={"type": "new_video"})
+        self.client.login(username="method_user", password=TEST_PASSWORD)
+
+    def test_add_comment_rejects_get(self):
+        response = self.client.get(reverse("interactions:add_comment", args=[self.video.id]), {"content": "Hi"})
+        self.assertEqual(response.status_code, 405)
+        self.assertFalse(Comment.objects.exists())
+
+    def test_vote_rejects_get(self):
+        response = self.client.get(reverse("interactions:vote_video", args=[self.video.id]), {"vote_type": "like"})
+        self.assertEqual(response.status_code, 405)
+        self.assertFalse(LikeDislike.objects.exists())
+
+    @patch("interactions.services.send_channel_notification.delay")
+    def test_toggle_subscription_rejects_get(self, mock_delay):
+        response = self.client.get(reverse("interactions:toggle_subscription", args=[self.uploader.id]))
+        self.assertEqual(response.status_code, 405)
+        self.assertFalse(Subscription.objects.exists())
+
+    def test_mark_notification_as_read_rejects_get(self):
+        response = self.client.get(reverse("interactions:mark_notification_as_read", args=[self.notification.id]))
+        self.assertEqual(response.status_code, 405)
+        self.notification.refresh_from_db()
+        self.assertFalse(self.notification.is_read)
+
+    def test_mark_all_notifications_as_read_rejects_get(self):
+        response = self.client.get(reverse("interactions:mark_all_notifications_as_read"))
+        self.assertEqual(response.status_code, 405)
+        self.notification.refresh_from_db()
+        self.assertFalse(self.notification.is_read)
+
+
+class InteractionRateLimitTests(RateLimitTestMixin, TestCase):
+    """互動端點依使用者限制請求次數，防止灌留言、洗讚、反覆訂閱洗通知"""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(username="ratelimit_user", password=TEST_PASSWORD)
+        self.uploader = User.objects.create_user(username="ratelimit_uploader", password=TEST_PASSWORD)
+        self.video = Video.objects.create(
+            title="Rate Limit Video",
+            uploader=self.uploader,
+            video_file=SimpleUploadedFile("ratelimit.mp4", TEST_VIDEO_CONTENT, TEST_VIDEO_CONTENT_TYPE),
+            visibility="public",
+        )
+        self.client.login(username="ratelimit_user", password=TEST_PASSWORD)
+        notify_patcher = patch("interactions.services.send_channel_notification.delay")
+        notify_patcher.start()
+        self.addCleanup(notify_patcher.stop)
+
+    def test_add_comment_limited_to_30_per_minute(self):
+        url = reverse("interactions:add_comment", args=[self.video.id])
+        self.assert_rate_limited(30, lambda: self.client.post(url, {"content": "spam"}))
+
+    def test_vote_limited_to_60_per_minute(self):
+        url = reverse("interactions:vote_video", args=[self.video.id])
+        self.assert_rate_limited(60, lambda: self.client.post(url, {"vote_type": LikeDislike.LIKE}))
+
+    def test_toggle_subscription_limited_to_30_per_minute(self):
+        url = reverse("interactions:toggle_subscription", args=[self.uploader.id])
+        self.assert_rate_limited(30, lambda: self.client.post(url))
+
 
 class PrivateVideoInteractionAccessTests(TestCase):
     """互動端點對 private 影片的存取控制：僅上傳者本人可用，其他人一律 404。"""
@@ -1008,3 +1164,15 @@ class NotificationConsumerTests(TransactionTestCase):
         self.assertTrue(await communicator.receive_nothing())
 
         await communicator.disconnect()
+
+    async def test_disconnect_leaves_group(self):
+        """斷線後須退出群組，否則 channel layer 會一直保留已失效的 channel"""
+        communicator = self._communicator(self.user)
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+        group_name = f"user_{self.user.id}_notifications"
+        self.assertIn(group_name, get_channel_layer().groups)
+
+        await communicator.disconnect()
+
+        self.assertNotIn(group_name, get_channel_layer().groups)

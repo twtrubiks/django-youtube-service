@@ -12,7 +12,14 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from videos.models import Video
-from videos.tasks import _resolve_transcode_codecs, generate_hls_files, process_video
+from videos.tasks import (
+    _get_exception_message,
+    _resolve_transcode_codecs,
+    _scaled_even_width,
+    _validate_source_video,
+    generate_hls_files,
+    process_video,
+)
 
 from .base import TestConstants
 
@@ -46,6 +53,21 @@ class ResolveTranscodeCodecsTests(TestCase):
     def test_h264_without_audio_copies_video(self):
         probe = self._probe({"codec_name": "h264", "pix_fmt": "yuv420p"})
         self.assertEqual(_resolve_transcode_codecs(probe), ("copy", "aac"))
+
+
+class TaskHelperTests(TestCase):
+    """轉檔輔助函式測試：錯誤訊息擷取與縮放寬度計算"""
+
+    def test_exception_message_prefers_ffmpeg_stderr(self):
+        error = ffmpeg.Error("ffmpeg", stdout=b"", stderr="無效的資料".encode())
+        self.assertEqual(_get_exception_message(error), "無效的資料")
+
+    def test_exception_message_without_stderr_uses_type_and_message(self):
+        self.assertEqual(_get_exception_message(ValueError("boom")), "ValueError: boom")
+
+    def test_scaled_even_width_never_below_two(self):
+        """極端長寬比縮放後寬度四捨五入為 0 時，仍需至少 2（libx264 要求寬高為正偶數）"""
+        self.assertEqual(_scaled_even_width(1, 1000, 720), 2)
 
 
 class ProcessVideoTaskTests(TestCase):
@@ -110,6 +132,7 @@ class ProcessVideoTaskTests(TestCase):
             b"",
         ]
         mock_open_file.return_value.write.return_value = None
+        stem = os.path.splitext(os.path.basename(self.video.video_file.name))[0]
 
         # 使用 patch 來避免實際的檔案操作
         with patch("django.db.models.fields.files.FieldFile.save", autospec=True) as mock_file_save:
@@ -125,15 +148,27 @@ class ProcessVideoTaskTests(TestCase):
             # 驗證 FieldFile.save 被調用了兩次（影片檔案和縮圖檔案）
             self.assertEqual(mock_file_save.call_count, 2)
 
-            # 驗證第一次調用是保存處理後的影片檔案
+            # 驗證第一次調用是保存處理後的影片檔案（檔名沿用原始檔名去副檔名）
             first_call_args = mock_file_save.call_args_list[0]
-            self.assertTrue(first_call_args[0][1].endswith("_processed.mp4"))
+            self.assertEqual(first_call_args[0][1], f"{stem}_processed.mp4")
 
             # 驗證第二次調用是保存縮圖檔案
             second_call_args = mock_file_save.call_args_list[1]
-            self.assertTrue(second_call_args[0][1].endswith("_thumb.jpg"))
+            self.assertEqual(second_call_args[0][1], f"{self.video.id}_{stem}_thumb.jpg")
 
             self.assertEqual(mock_ffmpeg_module.input.call_count, 2)
+            # 縮圖只擷取單一 frame
+            self.assertEqual(mock_input_stream.output.call_args_list[1].kwargs["vframes"], 1)
+            # Celery 重試時輸出檔已存在，ffmpeg 必須覆寫；stderr 需擷取作為失敗訊息來源
+            for run_call in mock_run_method.call_args_list:
+                self.assertEqual(
+                    run_call.kwargs, {"capture_stdout": True, "capture_stderr": True, "overwrite_output": True}
+                )
+            # 重試時輸出目錄已存在，建立目錄不可因此失敗
+            for makedirs_call in mock_os_makedirs.call_args_list:
+                self.assertTrue(makedirs_call.kwargs.get("exist_ok"))
+            # HLS 目錄名同樣以原始檔名去副檔名組成
+            self.assertEqual(mock_generate_hls.delay.call_args.args[2], stem)
             self.assertIn(f"影片 {self.video.title} (ID: {self.video.id}) 處理成功。", result)
 
             # 處理完成後應派發訂閱者通知 fan-out 任務
@@ -278,6 +313,20 @@ class ProcessVideoTaskTests(TestCase):
         self.assertEqual(self.video.processing_status, "failed")
         self.assertIn("超過上限", result)
         mock_ffmpeg_module.input.assert_not_called()
+
+    @patch("videos.tasks.ffmpeg")
+    def test_validate_source_video_accepts_duration_exactly_at_limit(self, mock_ffmpeg_module):
+        """時長剛好等於上限的影片應通過預檢"""
+        mock_ffmpeg_module.Error = ffmpeg.Error
+        mock_ffmpeg_module.probe.return_value = {
+            "streams": [{"codec_type": "video", "width": 1280, "height": 720}],
+            "format": {"duration": "60.0"},
+        }
+
+        with override_settings(VIDEO_UPLOAD_MAX_DURATION_SECONDS=60):
+            rejection, _ = _validate_source_video("/fake/path.mp4")
+
+        self.assertIsNone(rejection)
 
     @patch("videos.tasks.generate_hls_files")
     @patch("videos.tasks.os.path.exists")
@@ -456,13 +505,49 @@ class HLSFunctionalityTests(TestCase):
             written = "".join(call.args[0] for call in mock_open_file().write.call_args_list)
             self.assertIn("720p/playlist.m3u8", written)
             self.assertIn("1080p/playlist.m3u8", written)
-            self.assertIn("RESOLUTION=1280x720", written)
-            self.assertIn("RESOLUTION=1920x1080", written)
+            self.assertIn("BANDWIDTH=2800000,RESOLUTION=1280x720", written)
+            self.assertIn("BANDWIDTH=5500000,RESOLUTION=1920x1080", written)
+
+            # VOD：10 秒切片，且 playlist 須保留全部片段（hls_list_size=0），否則只剩最後幾段可播
+            for output_call in mock_input_stream.output.call_args_list:
+                self.assertEqual(output_call.kwargs["hls_time"], 10)
+                self.assertEqual(output_call.kwargs["hls_list_size"], 0)
+            # 重試時輸出檔與目錄已存在：ffmpeg 須覆寫、建立目錄不可失敗
+            for run_call in mock_output_stream.run.call_args_list:
+                self.assertEqual(
+                    run_call.kwargs, {"capture_stdout": True, "capture_stderr": True, "overwrite_output": True}
+                )
+            for makedirs_call in mock_makedirs.call_args_list:
+                self.assertTrue(makedirs_call.kwargs.get("exist_ok"))
 
             # 驗證影片的 hls_path 與 hls_status 被設置
             self.video.refresh_from_db()
             self.assertIn("master.m3u8", self.video.hls_path)
             self.assertEqual(self.video.hls_status, "completed")
+
+    def test_generate_hls_files_missing_video_returns_false(self):
+        with patch("videos.tasks.ffmpeg") as mock_ffmpeg:
+            self.assertFalse(generate_hls_files(987654, "/fake/path.mp4", "missing"))
+        mock_ffmpeg.probe.assert_not_called()
+
+    @patch("videos.tasks.open", new_callable=mock_open)
+    @patch("videos.tasks.os.makedirs")
+    def test_generate_hls_files_regenerates_when_path_set_but_not_completed(self, mock_makedirs, mock_open_file):
+        """admin 重新生成會把 hls_status 設回 pending 但保留舊 hls_path，此時須重新生成而非視為已完成"""
+        self.video.hls_path = "hls/old/master.m3u8"
+        self.video.hls_status = "pending"
+        self.video.save()
+
+        with patch("videos.tasks.ffmpeg") as mock_ffmpeg:
+            mock_ffmpeg.probe.return_value = {"streams": [{"codec_type": "video", "width": 1280, "height": 720}]}
+            mock_ffmpeg.input.return_value.output.return_value.run.return_value = (b"", b"")
+            result = generate_hls_files(self.video.id, "/fake/input.mp4", "regen")
+
+        self.assertTrue(result)
+        mock_ffmpeg.input.assert_called_once()
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.hls_status, "completed")
+        self.assertEqual(self.video.hls_path, os.path.join("hls", f"{self.video.id}_regen", "master.m3u8"))
 
     def test_generate_hls_files_retries_on_failure(self):
         """測試 generate_hls_files 失敗時會觸發重試"""
@@ -556,6 +641,9 @@ class HLSFunctionalityTests(TestCase):
         self.assertEqual(len(renditions), 1)
         self.assertEqual(renditions[0]["name"], "480p")
         self.assertEqual(renditions[0]["height"], 480)
+        # 位元率沿用最低的 720p profile，不可套用較高畫質的設定
+        self.assertEqual(renditions[0]["video_bitrate"], "2500k")
+        self.assertEqual(renditions[0]["bandwidth"], 2800000)
 
     def test_admin_regenerate_hls_action(self):
         """測試 admin 重新生成 HLS action 會重設狀態並排程任務"""
@@ -575,9 +663,37 @@ class HLSFunctionalityTests(TestCase):
 
         self.video.refresh_from_db()
         self.assertEqual(self.video.hls_status, "pending")
-        mock_delay.assert_called_once()
-        self.assertEqual(mock_delay.call_args[0][0], self.video.id)
+        stem = os.path.splitext(os.path.basename(self.video.video_file.name))[0]
+        mock_delay.assert_called_once_with(self.video.id, self.video.video_file.path, stem)
         mock_message.assert_called_once()
+
+    def test_admin_regenerate_hls_action_skips_videos_without_file(self):
+        """沒有影片檔的項目略過，但不可中斷其餘影片的排程；訊息只計入實際排程的數量"""
+        from django.contrib.admin.sites import AdminSite
+
+        from videos.admin import VideoAdmin
+
+        no_file_video = Video.objects.create(title="No File", uploader=self.user, video_file="")
+        model_admin = VideoAdmin(Video, AdminSite())
+        with (
+            patch("videos.admin.generate_hls_files.delay") as mock_delay,
+            patch.object(VideoAdmin, "message_user") as mock_message,
+        ):
+            # 無檔案的影片排在前面，確保略過後仍會處理後面的影片
+            queryset = Video.objects.filter(id__in=[no_file_video.id, self.video.id]).order_by("-id")
+            model_admin.regenerate_hls(None, queryset)
+
+        mock_delay.assert_called_once()
+        self.assertEqual(mock_delay.call_args.args[0], self.video.id)
+        mock_message.assert_called_once_with(None, "已為 1 部影片排程 HLS 重新生成。")
+
+    def test_admin_models_registered(self):
+        from django.contrib import admin
+
+        from videos.models import Category
+
+        self.assertTrue(admin.site.is_registered(Video))
+        self.assertTrue(admin.site.is_registered(Category))
 
     def test_media_auth_url_pattern(self):
         """
