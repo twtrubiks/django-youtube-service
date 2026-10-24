@@ -320,6 +320,20 @@ coverage html  # Generate a detailed report in HTML format
 
 ![alt tag](https://cdn.imgpile.com/f/RcQBFe1_xl.png)
 
+### Mutation Testing
+
+Coverage only shows that code was *executed*; mutation testing checks whether the tests *notice bugs*. The tool plants small changes (mutants) into the source one at a time, such as `>` to `>=`, `and` to `or`, or removing `@login_required`. If every test still passes, that behavior is not protected by any assertion.
+
+The project uses [cosmic-ray](https://github.com/sixty-north/cosmic-ray). It rewrites the source on disk and then runs the tests, so decorated views, Celery tasks and signal handlers get mutated too (mutmut 3 skips such functions).
+
+```cmd
+pip install cosmic-ray
+scripts/mutation/run.sh  # Runs one worker per CPU core by default, each with its own repo copy and test database
+cr-report --surviving-only --show-diff .mutation/session.sqlite  # List surviving mutants
+```
+
+The HTML report is written to `.mutation/report.html`. The config file `scripts/mutation/cosmic-ray.toml` excludes noisy operators (such as `+` to `**` and random variable replacement). Currently 489 of 538 mutants are killed (mutation score 90.9%); the remaining survivors are equivalent mutants or configuration constants, such as elapsed-time calculations that only affect logs, and Celery retry counts.
+
 ## 📂 Project Architecture
 
 ### Core Application Modules
@@ -351,7 +365,8 @@ youtube_service/
 ├── nginx/                   # Nginx reverse proxy config (production)
 │   └── nginx.conf
 ├── scripts/                 # Operations scripts
-│   └── backup_db.sh         # PostgreSQL daily backup
+│   ├── backup_db.sh         # PostgreSQL daily backup
+│   └── mutation/            # Mutation testing (cosmic-ray) config and runner script
 ├── static/                  # Static assets
 │   ├── css/main.css
 │   └── js/

@@ -325,6 +325,20 @@ coverage html  # 產生 HTML 格式的詳細報告
 
 ![alt tag](https://cdn.imgpile.com/f/RcQBFe1_xl.png)
 
+### 變異測試 (Mutation Testing)
+
+覆蓋率只說明程式碼「被執行過」；變異測試則檢驗測試能否「察覺錯誤」：工具逐一在原始碼植入小改動（mutant，例如 `>` 改成 `>=`、`and` 改成 `or`、移除 `@login_required`），若測試仍全部通過，代表該行為沒有被任何斷言保護。
+
+使用 [cosmic-ray](https://github.com/sixty-north/cosmic-ray)：它直接改寫原始碼再跑測試，掛有 decorator 的 view、Celery task、signal handler 也能變異（mutmut 3 會略過這類函式）。
+
+```cmd
+pip install cosmic-ray
+scripts/mutation/run.sh  # 預設以 CPU 核心數平行，每個 worker 使用獨立的 repo 副本與測試資料庫
+cr-report --surviving-only --show-diff .mutation/session.sqlite  # 列出存活的 mutant
+```
+
+HTML 報告輸出在 `.mutation/report.html`。設定檔 `scripts/mutation/cosmic-ray.toml` 排除了雜訊大的運算子（如 `+` 改成 `**`、隨機替換變數）。目前 538 個 mutant 殺死 489 個（mutation score 90.9%），其餘存活者為等價變異或設定常數，例如只影響 log 的耗時計算、Celery 重試次數。
+
 ## 📂 專案架構
 
 ### 核心應用模組
@@ -356,7 +370,8 @@ youtube_service/
 ├── nginx/                   # Nginx 反向代理設定（生產環境）
 │   └── nginx.conf
 ├── scripts/                 # 維運腳本
-│   └── backup_db.sh         # PostgreSQL 每日備份
+│   ├── backup_db.sh         # PostgreSQL 每日備份
+│   └── mutation/            # 變異測試（cosmic-ray）設定與執行腳本
 ├── static/                  # 靜態資源
 │   ├── css/main.css
 │   └── js/
